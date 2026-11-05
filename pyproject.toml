@@ -1,0 +1,44 @@
+[project]
+name = "calendula"
+version = "0.1.0"
+description = "MCP server that reads your Outlook (classic) calendar from WSL"
+authors = [{ name = "Miki Yutani", email = "mkyutani@gmail.com" }]
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["mcp", "outlook", "calendar", "wsl", "claude-code"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business :: Scheduling",
+]
+dependencies = ["mcp>=2.3,<3"]
+
+[project.urls]
+Homepage = "https://github.com/mkyutani/calendula"
+Repository = "https://github.com/mkyutani/calendula"
+
+[project.scripts]
+calendula = "calendula.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "ruff>=0.16.10",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4"]
+ignore = ["E501"]  # Line too long (handled by ruff format)
