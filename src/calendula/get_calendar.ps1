@@ -10,8 +10,10 @@
 
 $inv = [Globalization.CultureInfo]::InvariantCulture
 
-# Body lines: trimmed, blank lines dropped, and the Teams meeting block dropped
-# (a line of 10+ underscores followed by "Microsoft Teams", up to the next such line or the end).
+# Body lines: trimmed, blank lines dropped, and the Teams meeting block dropped (B-EV-3).
+# The block starts at a line of 10+ underscores followed by "Microsoft Teams", or at the heading
+# "Microsoft Teams 会議" or "Microsoft Teams meeting" followed by a Teams URL. It runs through the
+# next line of 40+ underscores, or to the end: the shorter lines seen inside a block do not end it.
 # An underscore line used for anything else (a quoted mail, say) is kept with what follows it.
 function Get-BodyLines([string]$body) {
     $raw  = $body -split "`r?`n"
@@ -19,13 +21,17 @@ function Get-BodyLines([string]$body) {
     $skip = $false
     for ($j = 0; $j -lt $raw.Count; $j++) {
         $t = $raw[$j].Trim()
-        if ($t -match '^_{10,}$') {
-            if ($skip) { $skip = $false; continue }
-            $k = $j + 1
-            while ($k -lt $raw.Count -and $raw[$k].Trim() -eq "") { $k++ }
-            if ($k -lt $raw.Count -and $raw[$k] -match 'Microsoft Teams') { $skip = $true; continue }
+        if ($skip) {
+            if ($t -match '^_{40,}$') { $skip = $false }
+            continue
         }
-        if ($skip -or $t -eq "") { continue }
+        if ($t -eq "") { continue }
+        $k = $j + 1
+        while ($k -lt $raw.Count -and $raw[$k].Trim() -eq "") { $k++ }
+        $next = if ($k -lt $raw.Count) { $raw[$k] } else { "" }
+        $opening = $t -match '^_{10,}$' -and $next -match 'Microsoft Teams'
+        $heading = $t -match '^Microsoft Teams (会議|meeting)$' -and $next -match 'teams\.microsoft\.'
+        if ($opening -or $heading) { $skip = $true; continue }
         $out.Add($t)
     }
     return ,$out

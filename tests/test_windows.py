@@ -70,10 +70,31 @@ def test_w2_body_lines(harness):
     b = harness["bodies"]
     assert b["teams_middle"] == ["Agenda", "1. Budget", "Thanks"]
     assert b["teams_end"] == ["Agenda"]
-    assert b["quoted"] == ["Hi", "_" * 16, "From: Someone", "Old text"]
+    assert b["quoted"] == ["Hi", "_" * 80, "From: Someone", "Old text"]
     assert b["short_line"] == ["_____", "Microsoft Teams", "kept"]
     assert b["spaces"] == ["a", "b"]
     assert b["empty"] == []
+    # A block with no opening line, and lines of 32 underscores inside a block.
+    assert b["no_opening"] == ["Text of the invitation"]
+    assert b["no_opening_en"] == ["Text"]
+    assert b["inner_lines"] == ["Before", "After"]
+    assert b["need_help"] == ["Before", "After"]
+    # Not a block.
+    assert b["plain_heading"] == ["開催形式", "Microsoft Teams 会議", "議題"]
+    assert b["sentence"] == [
+        "Microsoft Teams で開催します",
+        "https://teams.microsoft.invalid/meet/000?p=x",
+        "議題",
+    ]
+    assert b["quoted_32"] == ["Hi", "_" * 32, "From: Someone", "Old text"]
+    # The known limits: these lose text instead of keeping boilerplate (L9, L10).
+    assert b["limit_url"] == []
+    assert b["limit_end"] == ["Before"]
+    # The boundaries of the opening and closing lines.
+    assert b["open_9"] == ["Before", "_" * 9, "Microsoft Teams meeting", "After"]
+    assert b["open_10"] == ["Before"]
+    assert b["close_39"] == ["Before"]
+    assert b["close_40"] == ["Before", "After"]
 
 
 def test_w3_event_record(harness):
