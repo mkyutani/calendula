@@ -37,7 +37,7 @@ What T1–T4 cannot reach is listed in [residual risks](#6-residual-risks); T5 c
 | Decision table | the cache (spec 2.5, rows 1–5, one case per row) |
 | State transition | a cached day over time: absent → fresh → stale → fresh, or final (see below) |
 | Contract (exact output) | the text formats of spec 3.1, compared character for character |
-| Error guessing | PowerShell collapsing one-element arrays, BOMs, Japanese text, null COM properties |
+| Error guessing | PowerShell collapsing one-element arrays, BOMs, Japanese text, null COM properties, the console code page of Windows commands |
 
 State transitions of one cached day (spec 2.5):
 
@@ -136,6 +136,9 @@ TTL is 1 hour in these cases. The clock starts at 2026-11-05 09:00.
 | S2 | B-RST-2, B-RST-3 | Outlook not running → no `taskkill`; answer `Outlook was not running. Outlook was started again.` | T2 |
 | S3 | B-RST-2 | Outlook never appears → error after 120 s (fake clock) | T2 |
 | S4 | B-RST-4, B-ERR-1 | `restart_outlook` succeeds → the next `list_events` fetches; fails → tool error, and the cache is kept | T3 |
+| S5 | B-RST-5 | `tasklist.exe` answers its "no match" message in CP932 → the restart succeeds from both states (running, not running); a running image name in lower case counts as running | T2 |
+
+The fake behaves as the real `subprocess.run` does here: it returns bytes, and `text=True` decodes them strictly as UTF-8. So S1–S3 also go through the "no match" message.
 
 ### 4.7 MCP server — `tests/test_server.py`
 
@@ -149,6 +152,7 @@ TTL is 1 hour in these cases. The clock starts at 2026-11-05 09:00.
 | M6 | B-ERR-1, B-ERR-2, E2, E7 | a COM error → tool error with the message and the hint, and no events; an invalid time → tool error `invalid time` | T3 |
 | M7 | B-CACHE-9 | two `list_events` calls within the TTL report the same fetched time; with `refresh` the time is the new fetch's | T3 |
 | M8 | R8 | the real entry point (`python -m calendula.cli`) over stdio: initializes and lists the three tools | T3 |
+| M9 | B-ERR-1 | an unexpected exception in each of the three tools → a tool error with its type and text, and the traceback in the log | T3 |
 
 ### 4.8 Command line — `tests/test_cli.py`
 
@@ -171,6 +175,7 @@ TTL is 1 hour in these cases. The clock starts at 2026-11-05 09:00.
 | W5 | B-DAY-1, L2 | `Get-DayFilter` for 2026-11-05 → exactly `[Start] < '<a>' AND [End] > '<b>'`, where `<a>` and `<b>` read back, in the current Windows locale, as 2026-11-06 00:00 and 2026-11-05 00:00 | T4 |
 | W6 | 3.3 | `ConvertTo-CalendarJson` for days with 0, 1 and 2 events, with Japanese, quotes and `<>` → valid JSON; arrays stay arrays; text unchanged | T4 |
 | W7 | 3.4 | the plumbing: a probe script run through `wscript.exe` and `run_hidden.vbs`, hidden, writes `events.json` with Japanese → read back by `read_result` | T4 |
+| W8 | B-RST-5 | the running check on the real `tasklist.exe`, with an image name that does not exist → not running, in the current Windows locale | T4 |
 
 ### 4.10 Acceptance on the real Outlook (T5, manual)
 
@@ -196,8 +201,8 @@ Run on the user's PC, with Outlook (classic) running, after `uv tool install cal
 | R3 Freshness | B-CACHE-1–3, B-CACHE-9 | K1–K6, K13, M7, X6 |
 | R4 Economy | B-CACHE-2, B-CACHE-4, B-CACHE-7 | K2, K5, K7, K8, K11, X6 |
 | R5 Privacy | B-CACHE-8, 3.4 step 5 | K12, O3 (and by inspection: no code writes events to disk) |
-| R6 Failures | E1–E7, B-ERR-1, B-ERR-2, B-CACHE-6, B-INS-1 | O1, O4–O8, K10, M3, M6, L4, X5, X7 |
-| R7 Recovery | B-RST-1–4 | S1–S4, X7 |
+| R6 Failures | E1–E7, B-ERR-1, B-ERR-2, B-CACHE-6, B-INS-1 | O1, O4–O8, K10, M3, M6, M9, L4, X5, X7 |
+| R7 Recovery | B-RST-1–5 | S1–S5, W8, X7 |
 | R8 Interfaces | 3.1, 3.2, B-ANN-1 | M1, M2, M8, L1–L5 |
 | R9 Platform | 3.3, 3.4 | O2, O9, W1–W7, CI on Python 3.11–3.14, X1 |
 
@@ -247,12 +252,15 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | E2 | `RPC_E_` not recognized as a COM error | O4 |
 | B-ANN-1 | `list_events` and `get_event` not marked read-only | M1 |
 | B-RST-4 | the cache kept after a restart | S4 |
+| B-RST-5 | the running check decodes the output of `tasklist.exe` as text again | S1, S2, S3, S5, W8 |
+| B-RST-5 | the running check made case-sensitive | S5 |
+| B-ERR-1 | an unexpected exception is left to the SDK, which answers without its text | M9 |
 | B-EV-3 (Windows) | a line of 5 underscores starts a Teams block | W2 |
 | B-EV-3 (Windows) | any line of 10 or more underscores ends a Teams block | W2 |
 | B-EV-3 (Windows) | the heading alone starts a Teams block, without a Teams URL after it | W2 |
 | 3.3 (Windows) | `Get-DayEvents` returns its array without the comma operator (one event collapses) | W4 |
 
-Result on 2026-11-07: 25 of 25 caught. Rerun after changing the code:
+Result on 2026-11-07: 28 of 28 caught. Rerun after changing the code:
 
 ```bash
 CALENDULA_WINDOWS_TESTS=1 uv run python scripts/mutation_check.py   # without the variable, the Windows rows are skipped

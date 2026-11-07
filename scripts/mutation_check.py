@@ -137,7 +137,40 @@ MUTATIONS = [
         "READ_ONLY = ToolAnnotations(readOnlyHint=False,",
         ["m1"],
     ),
-    ("B-RST-4", "server.py", "        cal.clear()\n", "", ["s4"]),
+    ("B-RST-4", "server.py", "            cal.clear()\n", "", ["s4"]),
+    (
+        "B-RST-5 text",
+        "outlook.py",
+        """        capture_output=True,
+        check=False,
+    )
+    return b'"outlook.exe"' in r.stdout.lower()""",
+        """        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return '"outlook.exe"' in r.stdout.lower()""",
+        ["s5"],
+    ),
+    (
+        "B-RST-5 case",
+        "outlook.py",
+        """return b'"outlook.exe"' in r.stdout.lower()""",
+        """return b'"OUTLOOK.EXE"' in r.stdout""",
+        ["s5"],
+    ),
+    (
+        "B-ERR-1",
+        "server.py",
+        """    except Exception as e:
+        # The SDK would tell the client only "Error executing tool <name>". The client is the
+        # user's own, so it gets the text too; the traceback goes to the log, as the SDK's would.
+        logger.exception("Unexpected failure in a tool")
+        raise ToolError(f"{type(e).__name__}: {e}") from None
+""",
+        "",
+        ["m9"],
+    ),
     (
         "B-EV-3 (Windows)",
         "get_calendar.ps1",

@@ -134,6 +134,27 @@ def test_m6_errors_are_tool_errors_without_events():
     assert r.is_error and "invalid time" in text(r)
 
 
+def test_m9_unexpected_failures_carry_their_type_and_text(caplog):
+    def broken_fetch(start, days):
+        raise OSError("no such command")
+
+    def broken_restart():
+        raise OSError("no such command")
+
+    server = build_server(Calendar(broken_fetch), restart=broken_restart)
+    for tool, args in (
+        ("list_events", {"date": "2026-11-05"}),
+        ("get_event", {"date": "2026-11-05", "time": "10:00"}),
+        ("restart_outlook", {}),
+    ):
+        caplog.clear()
+        r = call_tool(server, tool, args)
+        assert r.is_error, tool
+        # The SDK puts "Error executing tool <name>: " in front of every tool error.
+        assert text(r).endswith("OSError: no such command"), tool
+        assert any(rec.exc_info for rec in caplog.records), tool
+
+
 def test_m7_answers_report_the_cached_fetch_time():
     clock = Clock(FETCHED)
     server = server_with({DAY: [ev("09:00", "10:00")]}, clock)

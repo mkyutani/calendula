@@ -107,13 +107,13 @@ def fetch(start: date, days: int) -> dict[date, list[Event]]:
 
 
 def _outlook_running() -> bool:
+    # Bytes, not text: with no match, tasklist.exe answers in the console code page (B-RST-5).
     r = subprocess.run(
         ["tasklist.exe", "/fi", "IMAGENAME eq OUTLOOK.EXE", "/fo", "csv", "/nh"],
         capture_output=True,
-        text=True,
         check=False,
     )
-    return '"outlook.exe"' in r.stdout.lower()
+    return b'"outlook.exe"' in r.stdout.lower()
 
 
 def restart() -> str:
