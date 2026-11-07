@@ -1,6 +1,6 @@
 # calendula specification
 
-Status: draft for review (0.1.0)
+Status: draft for review (0.2.0)
 
 ## How to read this document
 
