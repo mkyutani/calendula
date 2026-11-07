@@ -50,6 +50,7 @@ To let Claude read the calendar without asking each time, allow the two read-onl
 | `list_events` | `date` (YYYY-MM-DD, default today), `days` (1-31, default 1), `refresh` | Each day's events: time, subject, location |
 | `get_event` | `time` (HH:MM), `date`, `refresh` | The event running at that time (or the one starting nearest to it, with a note): location, organizer, attendees, status, body |
 | `restart_outlook` | none | Force-quits Outlook and starts it again, to recover a broken COM connection. Unsaved drafts are lost, so the model is told to ask you first |
+| `start_outlook` | none | Starts Outlook when it is closed, and never closes it. It opens a window on your desktop, so the model is told to ask you first |
 
 Every answer starts with the day and the time it was fetched:
 
@@ -85,7 +86,8 @@ calendula --version
 ## Troubleshooting
 
 - **`CO_E_SERVER_EXEC_FAILURE` (0x80080005) and similar COM errors**: Outlook's COM connection often breaks after sleep or a network change. Restart Outlook (Claude will ask before calling `restart_outlook`)
-- **`Outlook (classic) is not running`**: start Outlook and try again. calendula does not start it for you when reading the calendar: a closed Outlook can stop at its setup screen, and the read would hang
+- **`Outlook (classic) is not running`**: start Outlook and try again, or let Claude do it (it will ask before calling `start_outlook`). Reading the calendar never starts Outlook by itself: a closed Outlook can stop at its setup screen, and the read would hang
+- **`Outlook (classic) has no mail profile`**: `start_outlook` does not open Outlook on a PC where it has not been set up. If you do want to use it there, set it up in Outlook by hand. Only Office 2016 and later are recognized
 - **`Outlook gave no answer`**: check that Outlook (classic) is running
 - **`calendula needs WSL ...`**: calendula only works inside WSL on a Windows PC with Outlook
 

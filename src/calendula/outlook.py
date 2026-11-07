@@ -15,7 +15,8 @@ from .events import Event, parse_days
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 FETCH_TIMEOUT = 180  # seconds
-TASKLIST_TIMEOUT = 30  # seconds
+QUERY_TIMEOUT = 30  # seconds, for tasklist.exe and reg.exe
+PROFILES_KEY = r"HKCU\Software\Microsoft\Office\16.0\Outlook\Profiles"
 RESTART_WAIT = 120  # seconds to wait for OUTLOOK.EXE to appear
 RESTART_SETTLE = 15  # seconds to wait after it appears, before COM answers
 COM_ERROR_RE = re.compile(
@@ -28,16 +29,22 @@ RESTART_HINT = (
 )
 
 
-class OutlookError(Exception):
-    """Fetching from Outlook failed. `restart` is True when restarting Outlook is likely to help."""
+START_HINT = "Ask the user whether Outlook may be started; if they agree, call start_outlook and then retry once."
 
-    def __init__(self, message: str, restart: bool = False):
+
+class OutlookError(Exception):
+    """Fetching from Outlook failed. `restart` or `start` is True when doing that to Outlook is likely to help."""
+
+    def __init__(self, message: str, restart: bool = False, start: bool = False):
         super().__init__(message)
         self.restart = restart
+        self.start = start
 
     def __str__(self) -> str:
         msg = super().__str__()
-        return f"{msg}\n{RESTART_HINT}" if self.restart else msg
+        if self.restart:
+            return f"{msg}\n{RESTART_HINT}"
+        return f"{msg}\n{START_HINT}" if self.start else msg
 
 
 def _require(*commands: str) -> None:
@@ -101,7 +108,9 @@ def fetch(start: date, days: int) -> dict[date, list[Event]]:
     _require("wslpath", "wscript.exe", "tasklist.exe")
     # Creating Outlook.Application would start a closed Outlook, which can stop at its setup screen.
     if not _outlook_running():
-        raise OutlookError("Outlook (classic) is not running. Start it and try again.")
+        raise OutlookError(
+            "Outlook (classic) is not running. Start it and try again.", start=True
+        )
     with tempfile.TemporaryDirectory(prefix="calendula-") as tmp:
         workdir = Path(tmp)
         (workdir / "start.txt").write_text(f"{start:%Y%m%d}\n", encoding="ascii")
@@ -110,20 +119,63 @@ def fetch(start: date, days: int) -> dict[date, list[Event]]:
         return read_result(workdir)
 
 
-def _outlook_running() -> bool:
-    # Bytes, not text: with no match, tasklist.exe answers in the console code page (B-RST-5).
+def _query(cmd: list[str]) -> bytes:
+    """Output of a quick Windows command. Bytes, not text: it is in the console code page (B-RST-5)."""
     try:
-        r = subprocess.run(
-            ["tasklist.exe", "/fi", "IMAGENAME eq OUTLOOK.EXE", "/fo", "csv", "/nh"],
-            capture_output=True,
-            check=False,
-            timeout=TASKLIST_TIMEOUT,
-        )
+        return subprocess.run(
+            cmd, capture_output=True, check=False, timeout=QUERY_TIMEOUT
+        ).stdout
     except subprocess.TimeoutExpired:
         raise OutlookError(
-            f"tasklist.exe did not answer within {TASKLIST_TIMEOUT} seconds."
+            f"{cmd[0]} did not answer within {QUERY_TIMEOUT} seconds."
         ) from None
-    return b'"outlook.exe"' in r.stdout.lower()
+
+
+def _outlook_running() -> bool:
+    output = _query(
+        ["tasklist.exe", "/fi", "IMAGENAME eq OUTLOOK.EXE", "/fo", "csv", "/nh"]
+    )
+    return b'"outlook.exe"' in output.lower()
+
+
+def _has_subkey(key: str) -> bool:
+    """Whether a registry key has a subkey. The exit code does not say: it can exist with none (B-START-5)."""
+    # reg.exe prints each subkey in full on its own line. Only this yes or no leaves here,
+    # because a profile name can be a mail address.
+    full = key.replace("HKCU\\", "HKEY_CURRENT_USER\\", 1)
+    prefix = full.lower().encode("ascii") + b"\\"
+    lines = _query(["reg.exe", "query", key]).splitlines()
+    return any(line.lower().startswith(prefix) for line in lines)
+
+
+def _start_and_wait() -> None:
+    """Start Outlook, and wait until it has appeared and COM can answer (B-RST-2)."""
+    subprocess.run(
+        ["powershell.exe", "-NoProfile", "-Command", "Start-Process outlook.exe"],
+        capture_output=True,
+        check=False,
+    )
+    deadline = time.monotonic() + RESTART_WAIT
+    while not _outlook_running():
+        if time.monotonic() > deadline:
+            raise OutlookError(
+                f"OUTLOOK.EXE did not start within {RESTART_WAIT} seconds."
+            )
+        time.sleep(3)
+    time.sleep(RESTART_SETTLE)
+
+
+def start() -> str:
+    """Start Outlook if it is not running. It never closes Outlook. Returns what happened."""
+    _require("tasklist.exe", "reg.exe", "powershell.exe")
+    if _outlook_running():
+        return "Outlook is already running."
+    if not _has_subkey(PROFILES_KEY):
+        raise OutlookError(
+            "Outlook (classic) has no mail profile on this PC. Set it up in Outlook first."
+        )
+    _start_and_wait()
+    return "Outlook was started."
 
 
 def restart() -> str:
@@ -144,18 +196,6 @@ def restart() -> str:
             time.sleep(1)
     else:
         notes.append("Outlook was not running.")
-    subprocess.run(
-        ["powershell.exe", "-NoProfile", "-Command", "Start-Process outlook.exe"],
-        capture_output=True,
-        check=False,
-    )
-    deadline = time.monotonic() + RESTART_WAIT
-    while not _outlook_running():
-        if time.monotonic() > deadline:
-            raise OutlookError(
-                f"OUTLOOK.EXE did not start within {RESTART_WAIT} seconds."
-            )
-        time.sleep(3)
-    time.sleep(RESTART_SETTLE)
+    _start_and_wait()
     notes.append("Outlook was started again.")
     return " ".join(notes)

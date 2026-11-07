@@ -189,7 +189,10 @@ def test_o10_outlook_not_running(windows):
     windows["running"] = False
     with pytest.raises(outlook.OutlookError) as e:
         outlook.fetch(DAY, 1)
-    assert str(e.value) == "Outlook (classic) is not running. Start it and try again."
+    assert str(e.value) == (
+        "Outlook (classic) is not running. Start it and try again.\n"
+        + outlook.START_HINT
+    )
     assert not e.value.restart
     assert windows["runs"] == [] and windows["workdirs"] == []
 
@@ -200,5 +203,5 @@ def test_o11_tasklist_that_never_answers(windows):
         outlook.fetch(DAY, 1)
     assert str(e.value) == "tasklist.exe did not answer within 30 seconds."
     assert not e.value.restart
-    assert windows["tasklist"]["timeout"] == outlook.TASKLIST_TIMEOUT == 30
+    assert windows["tasklist"]["timeout"] == outlook.QUERY_TIMEOUT == 30
     assert windows["runs"] == [] and windows["workdirs"] == []

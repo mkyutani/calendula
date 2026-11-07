@@ -26,6 +26,7 @@ Every requirement and behavior has an ID. [test-design.md](test-design.md) maps 
 **In scope.**
 - Reading the events of the default calendar
 - Restarting Outlook when its COM connection is broken
+- Starting Outlook when it is closed, if the user agrees
 
 **Out of scope.**
 - Creating, changing or answering events
@@ -53,9 +54,9 @@ Every requirement and behavior has an ID. [test-design.md](test-design.md) maps 
 | R3 | **Freshness.** Answers reflect Outlook within a bounded age, and every answer says when its data was fetched. The caller can force a fresh fetch |
 | R4 | **Economy.** Do not fetch from Outlook when a fresh enough copy is held, and fetch at most once per request (C4) |
 | R5 | **Privacy.** Keep fetched events in memory only (C3) |
-| R6 | **Failures.** When Outlook cannot be read, return a clear error and never old or invented events. Tell the model when restarting Outlook may help, and that it needs the user's consent |
-| R7 | **Recovery.** Restart Outlook on request |
-| R8 | **Interfaces.** An MCP server on stdio with three tools, and a command line for manual checks. Tool names, arguments and output shape are stable, because skills tell the model to use them |
+| R6 | **Failures.** When Outlook cannot be read, return a clear error and never old or invented events. Tell the model when starting or restarting Outlook may help, and that it needs the user's consent |
+| R7 | **Recovery.** Start or restart Outlook on request |
+| R8 | **Interfaces.** An MCP server on stdio with four tools, and a command line for manual checks. Tool names, arguments and output shape are stable, because skills tell the model to use them |
 | R9 | **Platform.** Python 3.11–3.14 in WSL, Windows PowerShell 5.1, Outlook (classic) |
 
 ## 2. Behavior
@@ -138,9 +139,11 @@ Why: a day that was over when it was fetched will not change any more (row 3). T
 | E6 | The result is not valid | `Unexpected output from Outlook: <detail>` | no |
 | E7 | An argument is invalid (B-DATE-3, B-DAYS-1, B-TIME-1) | `invalid date ...`, `invalid time ...`, or the range error | no |
 | E8 | `OUTLOOK.EXE` is not running when a fetch starts. The script is not run, so a fetch never starts Outlook (creating `Outlook.Application` would, and a PC with no mail profile then stops at the setup screen) | `Outlook (classic) is not running. Start it and try again.` | no |
-| E9 | `tasklist.exe` did not finish within 30 seconds | `tasklist.exe did not answer within 30 seconds.` | no |
+| E9 | `tasklist.exe` or `reg.exe` did not finish within 30 seconds | `<command> did not answer within 30 seconds.` | no |
 
 The restart hint is appended on its own line: `Outlook's COM connection seems broken. Ask the user whether Outlook may be closed and restarted (unsaved drafts are lost); if they agree, call restart_outlook and then retry once.`
+
+E8 appends the start hint in the same way: `Ask the user whether Outlook may be started; if they agree, call start_outlook and then retry once.`
 
 | ID | Rule |
 | --- | --- |
@@ -155,14 +158,19 @@ The restart hint is appended on its own line: `Outlook's COM connection seems br
 | B-RST-2 | Outlook is started. calendula waits until `OUTLOOK.EXE` appears (checking every 3 seconds, at most 120 seconds, otherwise an error), then 15 more seconds for COM to answer |
 | B-RST-3 | The answer says what happened: `Outlook was closed.` or `Outlook was not running.`, then `Outlook was started again.` |
 | B-RST-4 | After a successful restart, the cache is emptied |
-| B-RST-5 | The running check (B-RST-1, B-RST-2, E8) looks for the image name in the output of `tasklist.exe` as bytes, ignoring case. With no match, `tasklist.exe` prints a message in the console code page (CP932 on Japanese Windows), so the output is not decoded |
+| B-RST-5 | The running check (B-RST-1, B-RST-2, B-START-1, E8) looks for the image name in the output of `tasklist.exe` as bytes, ignoring case. With no match, `tasklist.exe` prints a message in the console code page (CP932 on Japanese Windows), so the output is not decoded |
+| B-START-1 | `start_outlook` never closes Outlook. If `OUTLOOK.EXE` is running, it does nothing and answers `Outlook is already running.` |
+| B-START-2 | If it is not running and the PC has no mail profile (B-START-5), Outlook is not started and the tool fails with `Outlook (classic) has no mail profile on this PC. Set it up in Outlook first.` Starting it would only open the setup screen, which passes the running check and leaves the next fetch hanging (L7) |
+| B-START-3 | Otherwise Outlook is started and calendula waits as in B-RST-2. The answer is `Outlook was started.` |
+| B-START-4 | Starting Outlook does not empty the cache, because it does not change what was fetched (unlike B-RST-4) |
+| B-START-5 | The PC has a mail profile when `HKCU\Software\Microsoft\Office\16.0\Outlook\Profiles` has at least one subkey, found in the output of `reg.exe query` read as bytes. The exit code says nothing, because the key can exist with no subkeys. The names are never returned or logged, because a profile name can be a mail address (C3) |
 
 ### 2.8 Guidance for the model (R6, R8)
 
 | ID | Rule |
 | --- | --- |
-| B-INS-1 | The server's instructions tell the model: the tools are read-only; how fresh answers are and when to pass `refresh`; dates are `YYYY-MM-DD` and relative words must be turned into dates first; on failure, report the error and never fill in events; on a COM error, ask the user before `restart_outlook`, then retry once and do not restart repeatedly |
-| B-ANN-1 | Tool annotations: `list_events` and `get_event` are read-only, idempotent and closed-world. `restart_outlook` is destructive |
+| B-INS-1 | The server's instructions tell the model: the tools are read-only; how fresh answers are and when to pass `refresh`; dates are `YYYY-MM-DD` and relative words must be turned into dates first; on failure, report the error and never fill in events; on a COM error, ask the user before `restart_outlook`, then retry once and do not restart repeatedly; if the error says Outlook is not running, ask the user before `start_outlook`, then retry once |
+| B-ANN-1 | Tool annotations: `list_events` and `get_event` are read-only, idempotent and closed-world. `restart_outlook` is destructive. `start_outlook` is neither read-only nor destructive, and is idempotent and closed-world |
 
 ## 3. Interfaces
 
@@ -175,6 +183,7 @@ The server is named `calendula` and speaks MCP over stdio.
 | `list_events` | `date`: string, optional (B-DATE-*). `days`: integer 1–31, default 1. `refresh`: boolean, default false | text, below |
 | `get_event` | `time`: string, required (B-TIME-1). `date`: string, optional. `refresh`: boolean, default false | text, below |
 | `restart_outlook` | none | text (B-RST-3) |
+| `start_outlook` | none | text (B-START-1, B-START-3) |
 
 **`list_events` result.** One block per day, separated by a blank line:
 
@@ -273,14 +282,14 @@ cli.py ──> outlook.py (no cache) and events.py
 
 | Module | Responsibility | Spec |
 | --- | --- | --- |
-| `server.py` | the three tools, argument schemas, annotations, instructions; turns failures into tool errors | 3.1, B-ERR-1, B-INS-1, B-ANN-1, B-RST-4 |
+| `server.py` | the four tools, argument schemas, annotations, instructions; turns failures into tool errors | 3.1, B-ERR-1, B-INS-1, B-ANN-1, B-RST-4, B-START-4 |
 | `cache.py` | the decision table, the fetch span, the lock, the TTL setting | 2.5 |
 | `events.py` | parsing `events.json`, ordering, formatting, picking the event at a time, parsing dates and times | 2.1–2.4, 3.1 formats |
-| `outlook.py` | the process boundary, reading the result, classifying errors, restarting Outlook | 2.6, 2.7, 3.4 |
+| `outlook.py` | the process boundary, reading the result, classifying errors, starting and restarting Outlook | 2.6, 2.7, 3.4 |
 | `get_calendar.ps1` | reading Outlook and writing `events.json` | 3.3, B-DAY-1, B-EV-3 |
 | `cli.py` | the command line | 3.2 |
 
-`Calendar` takes the fetch function and the clock as parameters, and `build_server` takes the calendar and the restart function. This is what lets the tests replace Outlook and time (see [test-design.md](test-design.md)).
+`Calendar` takes the fetch function and the clock as parameters, and `build_server` takes the calendar and the start and restart functions. This is what lets the tests replace Outlook and time (see [test-design.md](test-design.md)).
 
 ## 5. Limitations and open questions
 
@@ -293,6 +302,7 @@ cli.py ──> outlook.py (no cache) and events.py
 | L5 | Times are Outlook's local times; there is no time zone handling | One user, one PC |
 | L6 | The body is returned whole and may be long | The model may need any part of it; the Teams block, the longest boilerplate, is removed |
 | L7 | Outlook left open at its setup screen passes the running check, so the fetch still ends in E5 after 180 seconds | It should be rare: a fetch no longer opens that screen (E8), so a person has to open it and leave it |
+| L8 | Only Office 16.0 (Office 2016 and later) is looked at for a mail profile, so with an older Office `start_outlook` says there is none | Older versions are out of support, and Outlook can still be started by hand |
 | L9 | A hand-written `Microsoft Teams 会議` or `Microsoft Teams meeting` followed directly by a Teams URL is taken for a Teams block, so the text after it is removed | Also requiring a `会議 ID` line would prevent it, but needs a string per language, and this layout should be rare |
 | L10 | Text after a Teams block with no closing line of 40 or more underscores, such as a quoted mail, is removed | There is no way to tell where such a block ends. The lengths seen so far are 32 inside a block and 80 around it |
 
