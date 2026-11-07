@@ -126,10 +126,10 @@ TTL is 1 hour in these cases. The clock starts at 2026-11-05 09:00.
 | O7 | E5 | the run times out → "did not answer within 180 seconds" plus the hint | T2 |
 | O8 | E6 | `events.json` that is not JSON, or lacks `date` → "Unexpected output" | T2 |
 | O9 | 3.3 | `events.json` in UTF-8 with and without a BOM, with Japanese → read the same | T2 |
-| O10 | E8, 3.4 | `OUTLOOK.EXE` is not running → exactly the E8 message, no restart hint; `wscript.exe` is not run and no temporary directory is created | T2 |
+| O10 | E8, 3.4 | `OUTLOOK.EXE` is not running → exactly the E8 message and the start hint, no restart hint; `wscript.exe` is not run and no temporary directory is created | T2 |
 | O11 | E9 | `tasklist.exe` times out → exactly the E9 message, no restart hint; `wscript.exe` is not run. Its limit is 30 seconds | T2 |
 
-### 4.6 Restarting Outlook — `tests/test_restart.py`
+### 4.6 Starting and restarting Outlook — `tests/test_restart.py`
 
 | ID | Spec | Condition → expected | Level |
 | --- | --- | --- | --- |
@@ -138,6 +138,12 @@ TTL is 1 hour in these cases. The clock starts at 2026-11-05 09:00.
 | S3 | B-RST-2 | Outlook never appears → error after 120 s (fake clock) | T2 |
 | S4 | B-RST-4, B-ERR-1 | `restart_outlook` succeeds → the next `list_events` fetches; fails → tool error, and the cache is kept | T3 |
 | S5 | B-RST-5 | `tasklist.exe` answers its "no match" message in CP932 → the restart succeeds from both states (running, not running); a running image name in lower case counts as running | T2 |
+| S6 | B-START-1 | Outlook running → only `tasklist.exe` is run; answer `Outlook is already running.` | T2 |
+| S7 | B-START-2, B-START-5 | not running, no subkey → exactly the B-START-2 error; Outlook is not started | T2 |
+| S8 | B-START-3, B-START-5 | not running, a profile named in CP932 → starts it, waits until it appears, then 15 s; answer exactly `Outlook was started.`; no `taskkill` | T2 |
+| S9 | B-START-3 | Outlook never appears → error after 120 s (fake clock) | T2 |
+| S10 | B-START-4, B-ERR-1 | `start_outlook` succeeds → the next `list_events` does not fetch; fails → tool error | T3 |
+| S11 | B-START-5, E9 | the check on the output of `reg.exe`: a subkey, in any letter case, with or without the key's own line → yes; nothing, blank lines, or only the key's own line with values → no. `reg.exe` times out → exactly the E9 message | T2 |
 
 The fake behaves as the real `subprocess.run` does here: it returns bytes, and `text=True` decodes them strictly as UTF-8. So S1–S3 also go through the "no match" message.
 
@@ -145,15 +151,15 @@ The fake behaves as the real `subprocess.run` does here: it returns bytes, and `
 
 | ID | Spec | Condition → expected | Level |
 | --- | --- | --- | --- |
-| M1 | R8, B-ANN-1 | tools are exactly `list_events`, `get_event`, `restart_outlook`; the first two read-only, idempotent, closed-world; the third destructive | T3 |
+| M1 | R8, B-ANN-1 | tools are exactly `list_events`, `get_event`, `restart_outlook`, `start_outlook`; the first two read-only, idempotent, closed-world; `restart_outlook` destructive; `start_outlook` neither read-only nor destructive, idempotent, closed-world | T3 |
 | M2 | 3.1 | schemas: `time` required in `get_event`; `days` default 1, minimum 1, maximum 31; `date` optional; `refresh` default false | T3 |
-| M3 | B-INS-1 | the instructions say: read-only; the TTL; `refresh`; `YYYY-MM-DD`; never fill in events; ask the user before `restart_outlook`; retry once | T3 |
+| M3 | B-INS-1 | the instructions say: read-only; the TTL; `refresh`; `YYYY-MM-DD`; never fill in events; ask the user before `restart_outlook`; ask the user before `start_outlook`; retry once | T3 |
 | M4 | 3.1 | `list_events` for two days, the second empty → the exact text, blocks separated by a blank line, `(no events)` | T3 |
 | M5 | 3.1, B-PICK-4, B-PICK-5 | `get_event` at a running time, between events (note line), and on a day with only an all-day event | T3 |
 | M6 | B-ERR-1, B-ERR-2, E2, E7 | a COM error → tool error with the message and the hint, and no events; an invalid time → tool error `invalid time` | T3 |
 | M7 | B-CACHE-9 | two `list_events` calls within the TTL report the same fetched time; with `refresh` the time is the new fetch's | T3 |
-| M8 | R8 | the real entry point (`python -m calendula.cli`) over stdio: initializes and lists the three tools | T3 |
-| M9 | B-ERR-1 | an unexpected exception in each of the three tools → a tool error with its type and text, and the traceback in the log | T3 |
+| M8 | R8 | the real entry point (`python -m calendula.cli`) over stdio: initializes and lists the four tools | T3 |
+| M9 | B-ERR-1 | an unexpected exception in each of the four tools → a tool error with its type and text, and the traceback in the log | T3 |
 
 ### 4.8 Command line — `tests/test_cli.py`
 
@@ -177,6 +183,7 @@ The fake behaves as the real `subprocess.run` does here: it returns bytes, and `
 | W6 | 3.3 | `ConvertTo-CalendarJson` for days with 0, 1 and 2 events, with Japanese, quotes and `<>` → valid JSON; arrays stay arrays; text unchanged | T4 |
 | W7 | 3.4 | the plumbing: a probe script run through `wscript.exe` and `run_hidden.vbs`, hidden, writes `events.json` with Japanese → read back by `read_result` | T4 |
 | W8 | B-RST-5 | the running check on the real `tasklist.exe`, with an image name that does not exist → not running, in the current Windows locale | T4 |
+| W9 | B-START-5 | the check on the real `reg.exe`: `HKCU\Software` has a subkey; a key that does not exist has none. Only the yes or no is looked at | T4 |
 
 ### 4.10 Acceptance on the real Outlook (T5, manual)
 
@@ -192,6 +199,8 @@ Run on the user's PC, with Outlook (classic) running, after `uv tool install cal
 | X6 | R8, B-CACHE-2 | in Claude Code, after `claude mcp add`: "What's on my calendar today?", then again, then "check again, it just changed" | the first answer fetches; the second shows the same fetched time; the third a new one |
 | X7 | R7, B-INS-1 | when a COM error happens (after sleep), ask Claude for the schedule | Claude asks before restarting; after you agree, Outlook restarts and the retry succeeds |
 | X8 | B-DAY-1, B-DAY-2 | `calendula list <first day> <n>` over a multi-day all-day event and a meeting past midnight | each appears on every day it covers, with the spans of spec 3.1; the all-day event not on the day after its last day |
+| X9 | R7, B-START-3, B-INS-1 | on a PC with a mail profile, close Outlook and ask Claude for the schedule | Claude asks before starting it; after you agree, Outlook starts and the retry succeeds |
+| X10 | B-START-2 | on a PC with no mail profile, ask Claude for the schedule and agree to starting Outlook | an error saying there is no mail profile; no setup screen appears |
 
 ## 5. Traceability
 
@@ -203,7 +212,7 @@ Run on the user's PC, with Outlook (classic) running, after `uv tool install cal
 | R4 Economy | B-CACHE-2, B-CACHE-4, B-CACHE-7 | K2, K5, K7, K8, K11, X6 |
 | R5 Privacy | B-CACHE-8, 3.4 step 5 | K12, O3 (and by inspection: no code writes events to disk) |
 | R6 Failures | E1–E9, B-ERR-1, B-ERR-2, B-CACHE-6, B-INS-1 | O1, O4–O8, O10, O11, K10, M3, M6, M9, L4, X5, X7 |
-| R7 Recovery | B-RST-1–5 | S1–S5, W8, X7 |
+| R7 Recovery | B-RST-1–5, B-START-1–5 | S1–S11, W8, W9, X7, X9, X10 |
 | R8 Interfaces | 3.1, 3.2, B-ANN-1 | M1, M2, M8, L1–L5 |
 | R9 Platform | 3.3, 3.4 | O2, O9, W1–W7, CI on Python 3.11–3.14, X1 |
 
@@ -216,7 +225,8 @@ What the automated levels cannot show, and how it is covered:
 | The COM calls themselves: `New-Object -ComObject Outlook.Application`, `GetDefaultFolder(9)`, `IncludeRecurrences` with `Sort` and `Restrict` | needs Outlook (C1, C5), and reading a real calendar from a development session is avoided (C3) | X1–X4 |
 | Outlook parsing the Restrict dates in a locale other than Japanese (L2) | W5 checks the round trip in the developer's locale only | X1 on each new locale |
 | How long a real fetch takes, and whether 180 s is enough | timing depends on the PC | X1, X6 |
-| Claude following the instructions (asking before a restart, using `refresh`) | model behavior, not code | X6, X7 |
+| Claude following the instructions (asking before a start or a restart, using `refresh`) | model behavior, not code | X6, X7, X9 |
+| Outlook keeping its mail profiles under the registry key that B-START-5 reads | W9 checks the output of `reg.exe` on another key, and the developer's PC has no mail profile | X9, X10 |
 
 ## 7. Approval
 
@@ -224,7 +234,7 @@ The design is approved when the reviewer accepts sections 2–6 and answers the 
 
 - T1–T3 pass in CI on Python 3.11, 3.12, 3.13 and 3.14, with ruff clean
 - T4 passes on a WSL PC (`CALENDULA_WINDOWS_TESTS=1 uv run pytest tests/test_windows.py -v`)
-- X1–X7 pass on the user's PC; X8 is recorded with the answer to Q1
+- X1–X7 and X9 pass on the user's PC, and X10 on a PC with no mail profile; X8 is recorded with the answer to Q1
 
 ## 8. Evidence that the tests can fail
 
@@ -250,16 +260,20 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | B-CACHE-7 | no lock | K11 |
 | E2 | `RPC_E_` not recognized as a COM error | O4 |
 | E8 | no running check: a fetch runs the script with Outlook closed | O10, O11 |
-| E9 | no limit on `tasklist.exe` | O11 |
+| E9 | no limit on `tasklist.exe` and `reg.exe` | O11 |
 | B-ANN-1 | `list_events` and `get_event` not marked read-only | M1 |
 | B-RST-4 | the cache kept after a restart | S4 |
-| B-RST-5 | the running check decodes the output of `tasklist.exe` as text again | O2, O3, O7, O10, S1, S2, S3, S5, W8 |
+| B-RST-5 | the output of Windows commands is decoded as text again | S1–S3, S5–S9, S11, W8, W9 |
 | B-RST-5 | the running check made case-sensitive | S5 |
+| B-START-1 | a running Outlook is started again | S6 |
+| B-START-2 | no mail profile check: the setup screen opens | S7, S11 |
+| B-START-4 | the cache emptied when Outlook is started | S10 |
+| B-START-5 | the key's own line counted as a subkey | S11 |
 | B-ERR-1 | an unexpected exception is left to the SDK, which answers without its text | M9 |
 | B-EV-3 (Windows) | a line of 5 underscores starts a Teams block | W2 |
 | 3.3 (Windows) | `Get-DayEvents` returns its array without the comma operator (one event collapses) | W4 |
 
-Result on 2026-11-07: 26 of 26 caught. Rerun after changing the code:
+Result on 2026-11-07: 30 of 30 caught. Rerun after changing the code:
 
 ```bash
 CALENDULA_WINDOWS_TESTS=1 uv run python scripts/mutation_check.py   # without the variable, the Windows rows are skipped

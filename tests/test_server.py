@@ -36,7 +36,12 @@ def tools_and_instructions():
 
 def test_m1_tools_and_annotations():
     tools, _ = tools_and_instructions()
-    assert set(tools) == {"list_events", "get_event", "restart_outlook"}
+    assert set(tools) == {
+        "list_events",
+        "get_event",
+        "restart_outlook",
+        "start_outlook",
+    }
     for name in ("list_events", "get_event"):
         a = tools[name].annotations
         assert (a.read_only_hint, a.idempotent_hint, a.open_world_hint) == (
@@ -46,6 +51,13 @@ def test_m1_tools_and_annotations():
         )
     assert tools["restart_outlook"].annotations.destructive_hint is True
     assert tools["restart_outlook"].annotations.read_only_hint is False
+    a = tools["start_outlook"].annotations
+    assert (
+        a.read_only_hint,
+        a.destructive_hint,
+        a.idempotent_hint,
+        a.open_world_hint,
+    ) == (False, False, True, False)
 
 
 def test_m2_argument_schemas():
@@ -71,6 +83,7 @@ def test_m3_instructions():
         "YYYY-MM-DD",
         "Never fill in events",
         "ask the user for permission before calling restart_outlook",
+        "ask the user for permission before calling start_outlook",
         "retry once",
     ):
         assert phrase in instructions, phrase
@@ -138,14 +151,17 @@ def test_m9_unexpected_failures_carry_their_type_and_text(caplog):
     def broken_fetch(start, days):
         raise OSError("no such command")
 
-    def broken_restart():
+    def broken_outlook():
         raise OSError("no such command")
 
-    server = build_server(Calendar(broken_fetch), restart=broken_restart)
+    server = build_server(
+        Calendar(broken_fetch), restart=broken_outlook, start=broken_outlook
+    )
     for tool, args in (
         ("list_events", {"date": "2026-11-05"}),
         ("get_event", {"date": "2026-11-05", "time": "10:00"}),
         ("restart_outlook", {}),
+        ("start_outlook", {}),
     ):
         caplog.clear()
         r = call_tool(server, tool, args)
@@ -184,6 +200,6 @@ def test_m8_stdio_entry_point():
 
     names, server_name = asyncio.run(run())
     assert (
-        names == ["get_event", "list_events", "restart_outlook"]
+        names == ["get_event", "list_events", "restart_outlook", "start_outlook"]
         and server_name == "calendula"
     )

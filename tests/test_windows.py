@@ -151,3 +151,9 @@ def test_w8_running_check_on_the_real_tasklist(monkeypatch):
 
     monkeypatch.setattr(outlook.subprocess, "run", other_image)
     assert outlook._outlook_running() is False
+
+
+def test_w9_mail_profile_check_on_the_real_reg():
+    # Any user has subkeys under HKCU\\Software. Only the yes or no comes back, never a name.
+    assert outlook._has_subkey("HKCU\\Software") is True
+    assert outlook._has_subkey("HKCU\\Software\\calendula-no-such-key") is False

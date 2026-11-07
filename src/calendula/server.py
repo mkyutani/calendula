@@ -29,6 +29,8 @@ after they were fetched; past days are fetched once per session. Every answer sa
 - If fetching fails, report the error. Never fill in events from memory or from older answers.
 - If the error says Outlook's COM connection is broken, ask the user for permission before calling \
 restart_outlook (it force-quits Outlook and unsaved drafts are lost), then retry once. Do not restart repeatedly.
+- If the error says Outlook is not running, ask the user for permission before calling start_outlook \
+(it opens Outlook on their desktop), then retry once.
 """
 
 DateArg = Annotated[
@@ -56,7 +58,9 @@ def tool_errors() -> Iterator[None]:
 
 
 def build_server(
-    calendar: Calendar | None = None, restart: Callable[[], str] = outlook.restart
+    calendar: Calendar | None = None,
+    restart: Callable[[], str] = outlook.restart,
+    start: Callable[[], str] = outlook.start,
 ) -> MCPServer:
     cal = calendar or Calendar(outlook.fetch)
     server = MCPServer("calendula", version=__version__, instructions=INSTRUCTIONS)
@@ -123,5 +127,21 @@ def build_server(
             result = restart()
             cal.clear()
             return result
+
+    @server.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=False,
+        )
+    )
+    def start_outlook() -> str:
+        """Start Outlook (classic) if it is not running. It never closes Outlook.
+
+        It opens a window on the user's desktop. Call it only after the user has agreed, and only after a fetch failed because Outlook is not running.
+        """
+        with tool_errors():
+            return start()
 
     return server

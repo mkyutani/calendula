@@ -118,7 +118,9 @@ MUTATIONS = [
         "E8",
         "outlook.py",
         """    if not _outlook_running():
-        raise OutlookError("Outlook (classic) is not running. Start it and try again.")
+        raise OutlookError(
+            "Outlook (classic) is not running. Start it and try again.", start=True
+        )
 """,
         "",
         ["o10"],
@@ -126,8 +128,8 @@ MUTATIONS = [
     (
         "E9",
         "outlook.py",
-        "            timeout=TASKLIST_TIMEOUT,\n",
-        "",
+        "cmd, capture_output=True, check=False, timeout=QUERY_TIMEOUT",
+        "cmd, capture_output=True, check=False",
         ["o11"],
     ),
     (
@@ -141,33 +143,50 @@ MUTATIONS = [
     (
         "B-RST-5 text",
         "outlook.py",
-        """            capture_output=True,
-            check=False,
-            timeout=TASKLIST_TIMEOUT,
-        )
-    except subprocess.TimeoutExpired:
-        raise OutlookError(
-            f"tasklist.exe did not answer within {TASKLIST_TIMEOUT} seconds."
-        ) from None
-    return b'"outlook.exe"' in r.stdout.lower()""",
-        """            capture_output=True,
-            text=True,
-            check=False,
-            timeout=TASKLIST_TIMEOUT,
-        )
-    except subprocess.TimeoutExpired:
-        raise OutlookError(
-            f"tasklist.exe did not answer within {TASKLIST_TIMEOUT} seconds."
-        ) from None
-    return '"outlook.exe"' in r.stdout.lower()""",
+        "cmd, capture_output=True, check=False, timeout=QUERY_TIMEOUT",
+        "cmd, capture_output=True, text=True, check=False, timeout=QUERY_TIMEOUT",
         ["s5"],
     ),
     (
         "B-RST-5 case",
         "outlook.py",
-        """return b'"outlook.exe"' in r.stdout.lower()""",
-        """return b'"OUTLOOK.EXE"' in r.stdout""",
+        """return b'"outlook.exe"' in output.lower()""",
+        """return b'"OUTLOOK.EXE"' in output""",
         ["s5"],
+    ),
+    (
+        "B-START-1",
+        "outlook.py",
+        """    if _outlook_running():
+        return "Outlook is already running."
+""",
+        "",
+        ["s6"],
+    ),
+    (
+        "B-START-2",
+        "outlook.py",
+        """    if not _has_subkey(PROFILES_KEY):
+        raise OutlookError(
+            "Outlook (classic) has no mail profile on this PC. Set it up in Outlook first."
+        )
+""",
+        "",
+        ["s7"],
+    ),
+    (
+        "B-START-4",
+        "server.py",
+        "            return start()\n",
+        "            cal.clear()\n            return start()\n",
+        ["s10"],
+    ),
+    (
+        "B-START-5 own line",
+        "outlook.py",
+        """prefix = full.lower().encode("ascii") + b"\\\\\"""",
+        """prefix = full.lower().encode("ascii")""",
+        ["s11"],
     ),
     (
         "B-ERR-1",

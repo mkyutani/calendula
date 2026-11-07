@@ -6,13 +6,13 @@ calendula is an MCP server (Python, `mcp` SDK 2.x `MCPServer`) that reads Outloo
 
 - `src/calendula/server.py`: the tools and the server instructions the model reads
 - `src/calendula/cache.py`: the in-memory cache (today and later: TTL; past days fetched after they ended: kept)
-- `src/calendula/outlook.py`: the bridge to Windows (`wscript.exe` + `run_hidden.vbs` + `get_calendar.ps1`), and `restart`
+- `src/calendula/outlook.py`: the bridge to Windows (`wscript.exe` + `run_hidden.vbs` + `get_calendar.ps1`), `start` and `restart`
 - `src/calendula/events.py`: parsing `events.json`, formatting, picking the event at a time
 - `src/calendula/cli.py`: `calendula [serve|list|show]`
 
 ## Rules
 
-- Do not fetch the user's real calendar from a development session unless asked; the events are private. Test with fakes (`Calendar(fetch=...)`, `build_server(calendar, restart=...)`, `read_result` on a temp dir)
+- Do not fetch the user's real calendar from a development session unless asked; the events are private. Test with fakes (`Calendar(fetch=...)`, `build_server(calendar, restart=..., start=...)`, `read_result` on a temp dir)
 - To check the Windows plumbing without Outlook, run `outlook._run_powershell` with a probe script that writes `events.json` itself
 - Never write fetched events to disk, and never return older copies when a fetch fails
 - Keep the tool names, arguments and the output shape stable: skills tell the model to use these tools
