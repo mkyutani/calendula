@@ -141,7 +141,7 @@ The restart hint is appended on its own line: `Outlook's COM connection seems br
 
 | ID | Rule |
 | --- | --- |
-| B-ERR-1 | A tool that fails returns an MCP tool error (`isError: true`) carrying the message, never a normal result |
+| B-ERR-1 | A tool that fails returns an MCP tool error (`isError: true`) carrying the message, never a normal result. A failure that is not in the table above (an unexpected exception) carries its type and text, `<type>: <text>`, and its traceback goes to the log (standard error) |
 | B-ERR-2 | A failed request never returns events, old or new |
 
 ### 2.7 Recovery (R7)
@@ -152,6 +152,7 @@ The restart hint is appended on its own line: `Outlook's COM connection seems br
 | B-RST-2 | Outlook is started. calendula waits until `OUTLOOK.EXE` appears (checking every 3 seconds, at most 120 seconds, otherwise an error), then 15 more seconds for COM to answer |
 | B-RST-3 | The answer says what happened: `Outlook was closed.` or `Outlook was not running.`, then `Outlook was started again.` |
 | B-RST-4 | After a successful restart, the cache is emptied |
+| B-RST-5 | The running check (B-RST-1, B-RST-2) looks for the image name in the output of `tasklist.exe` as bytes, ignoring case. With no match, `tasklist.exe` prints a message in the console code page (CP932 on Japanese Windows), so the output is not decoded |
 
 ### 2.8 Guidance for the model (R6, R8)
 

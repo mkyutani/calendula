@@ -9,19 +9,34 @@ from calendula import outlook
 from calendula.cache import Calendar
 from calendula.server import build_server
 
+# What tasklist.exe prints on Japanese Windows when nothing matches: CP932, not UTF-8.
+NO_MATCH = "情報: 指定された条件に一致するタスクは実行されていません。\r\n".encode(
+    "cp932"
+)
+
 
 class FakeWindows:
-    """tasklist answers from `running`; taskkill stops it; Start-Process starts it after `start_delay` seconds."""
+    """tasklist answers from `running`; taskkill stops it; Start-Process starts it after `start_delay` seconds.
 
-    def __init__(self, running: bool, start_delay: float | None = 6):
+    Output is bytes, and text=True decodes it strictly as UTF-8, as the real subprocess.run does here.
+    """
+
+    def __init__(
+        self,
+        running: bool,
+        start_delay: float | None = 6,
+        image: str = "OUTLOOK.EXE",
+    ):
         self.running = running
         self.start_delay = start_delay
+        self.image = image
         self.clock = 0.0
         self.started_at = None
         self.commands = []
 
-    def run(self, cmd, **kwargs):
+    def run(self, cmd, text=False, **kwargs):
         self.commands.append(cmd[0])
+        out = b""
         if cmd[0] == "tasklist.exe":
             if (
                 self.started_at is not None
@@ -30,16 +45,17 @@ class FakeWindows:
             ):
                 self.running = True
             out = (
-                '"OUTLOOK.EXE","1234","Console","1","200,000 K"\n'
+                f'"{self.image}","1234","Console","1","200,000 K"\r\n'.encode("ascii")
                 if self.running
-                else "INFO: No tasks are running.\n"
+                else NO_MATCH
             )
-            return subprocess.CompletedProcess(cmd, 0, stdout=out)
         if cmd[0] == "taskkill.exe":
             self.running = False
         if cmd[0] == "powershell.exe":
             self.started_at = self.clock
-        return subprocess.CompletedProcess(cmd, 0, stdout="")
+        return subprocess.CompletedProcess(
+            cmd, 0, stdout=out.decode("utf-8") if text else out
+        )
 
     def sleep(self, seconds):
         self.clock += seconds
@@ -101,3 +117,19 @@ def test_s4_the_tool_clears_the_cache_only_on_success():
     assert r.is_error and "did not start" in text(r)
     call_tool(bad, "list_events", {"date": "2026-11-05"})
     assert len(fetches.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "running, image, answer",
+    [
+        (True, "OUTLOOK.EXE", "Outlook was closed. Outlook was started again."),
+        (True, "outlook.exe", "Outlook was closed. Outlook was started again."),
+        (False, "OUTLOOK.EXE", "Outlook was not running. Outlook was started again."),
+    ],
+)
+def test_s5_restart_succeeds_when_tasklist_answers_in_cp932(
+    fake, running, image, answer
+):
+    w = fake(running=running, image=image)
+    assert outlook.restart() == answer
+    assert w.running

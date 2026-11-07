@@ -137,3 +137,17 @@ def test_w7_plumbing_through_wscript(tmp_path):
     (work / "start.txt").write_text("20261105\n")
     outlook._run_powershell(probe, work)
     assert outlook.read_result(work)[date(2026, 11, 5)][0].subject == "日本語の件名"
+
+
+def test_w8_running_check_on_the_real_tasklist(monkeypatch):
+    # No process has this name, so tasklist.exe answers in the console code page. Outlook is not contacted.
+    real_run = subprocess.run
+
+    def other_image(cmd, **kwargs):
+        return real_run(
+            [a.replace("OUTLOOK.EXE", "calendula-no-such-image.exe") for a in cmd],
+            **kwargs,
+        )
+
+    monkeypatch.setattr(outlook.subprocess, "run", other_image)
+    assert outlook._outlook_running() is False
