@@ -126,10 +126,10 @@ def test_w4_day_events(harness):
         assert d[name]["filter"] == harness["filter"], name
 
 
-def test_w5_filter_selects_the_events_overlapping_the_day(harness):
+def test_w5_filter_is_a_day_wider_on_each_side(harness):
     assert re.fullmatch(r"\[Start\] < '[^']+' AND \[End\] > '[^']+'", harness["filter"])
-    # read back in the current Windows locale: start before the next day, end after this day began
-    assert harness["filter_times"] == ["2026-11-06T00:00:00", "2026-11-05T00:00:00"]
+    # read back in the current Windows locale, for the day 2026-11-05
+    assert harness["filter_times"] == ["2026-11-07T00:00:00", "2026-11-04T00:00:00"]
 
 
 def test_w6_json(harness):
@@ -178,3 +178,12 @@ def test_w9_mail_profile_check_on_the_real_reg():
     # Any user has subkeys under HKCU\\Software. Only the yes or no comes back, never a name.
     assert outlook._has_subkey("HKCU\\Software") is True
     assert outlook._has_subkey("HKCU\\Software\\calendula-no-such-key") is False
+
+
+def test_w10_only_appointments_that_overlap_the_day_in_local_time(harness):
+    # Sorted by start. The fake Restrict returned all six, including those on the days around it.
+    assert harness["day_events"]["boundaries"]["subjects"] == [
+        "across_the_day",
+        "past_midnight",
+        "all_day",
+    ]

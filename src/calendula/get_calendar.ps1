@@ -54,20 +54,24 @@ function ConvertTo-EventRecord($item) {
     }
 }
 
-# The Restrict filter for the appointments that overlap $day: they start before the next day
-# and end after this day began (an all-day event ends at 00:00 of the day after its last day).
+# The Restrict filter: a coarse one, a day wider than $day on each side. Restrict does not compare
+# every appointment in local time (an all-day event in another time zone can match the day after
+# its last day), so it only narrows the search. Get-DayEvents decides.
 function Get-DayFilter([datetime]$day) {
-    "[Start] < '" + $day.AddDays(1).ToString("g") + "' AND [End] > '" + $day.ToString("g") + "'"
+    "[Start] < '" + $day.AddDays(2).ToString("g") + "' AND [End] > '" + $day.AddDays(-1).ToString("g") + "'"
 }
 
 # Records of the appointments in $folder (a calendar MAPIFolder) that overlap $day, sorted by start.
+# They overlap when, in local time, they start before the next day and end after this day began
+# (an all-day event ends at 00:00 of the day after its last day).
 # Always an array, even with zero or one event.
 function Get-DayEvents($folder, [datetime]$day) {
     $items = $folder.Items
     $items.IncludeRecurrences = $true
     $items.Sort("[Start]")
+    $next = $day.AddDays(1)
     $events = [System.Collections.Generic.List[object]]::new()
-    foreach ($item in ($items.Restrict((Get-DayFilter $day)) | Sort-Object Start)) {
+    foreach ($item in ($items.Restrict((Get-DayFilter $day)) | Where-Object { $_.Start -lt $next -and $_.End -gt $day } | Sort-Object Start)) {
         $events.Add((ConvertTo-EventRecord $item))
     }
     return ,$events.ToArray()

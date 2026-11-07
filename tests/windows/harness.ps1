@@ -66,6 +66,15 @@ $folders = [ordered]@{
         (New-Item "2026-11-05 15:00" "2026-11-05 16:00" "late"),
         (New-Item "2026-11-05 09:00" "2026-11-05 10:00" "early")
     )
+    # W10: the fake Restrict returns all of these, as the real one may for an all-day event in another time zone
+    boundaries = New-Folder @(
+        (New-Item "2026-11-04 00:00" "2026-11-05 00:00" "ends_at_day_start" "" $true),
+        (New-Item "2026-11-06 00:00" "2026-11-07 00:00" "starts_at_next_day" "" $true),
+        (New-Item "2026-11-05 00:00" "2026-11-05 00:00" "zero_length_at_day_start"),
+        (New-Item "2026-11-05 00:00" "2026-11-06 00:00" "all_day" "" $true),
+        (New-Item "2026-11-04 23:00" "2026-11-05 01:00" "past_midnight"),
+        (New-Item "2026-11-04 09:00" "2026-11-06 17:00" "across_the_day")
+    )
 }
 $r.day_events = [ordered]@{}
 foreach ($k in $folders.Keys) {
