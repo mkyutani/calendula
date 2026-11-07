@@ -252,7 +252,7 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | B-EV-3 (Windows) | the heading alone starts a Teams block, without a Teams URL after it | W2 |
 | 3.3 (Windows) | `Get-DayEvents` returns its array without the comma operator (one event collapses) | W4 |
 
-Result on 2026-11-07: 23 of 23 caught. Rerun after changing the code:
+Result on 2026-11-07: 25 of 25 caught. Rerun after changing the code:
 
 ```bash
 CALENDULA_WINDOWS_TESTS=1 uv run python scripts/mutation_check.py   # without the variable, the Windows rows are skipped
