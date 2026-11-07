@@ -164,7 +164,7 @@ TTL is 1 hour in these cases. The clock starts at 2026-11-05 09:00.
 | ID | Spec | Condition → expected | Level |
 | --- | --- | --- | --- |
 | W1 | 3.3 | the PowerShell parser finds no syntax errors in `get_calendar.ps1` | T4 |
-| W2 | B-EV-3 | `Get-BodyLines` on: a Teams block in the middle; a Teams block at the end with no closing line; an underscore line not followed by Teams (kept); a 5-underscore line (not a separator); lines with spaces and blank lines; an empty body → the expected lines | T4 |
+| W2 | B-EV-3, L9, L10 | `Get-BodyLines` on: a Teams block in the middle; a Teams block at the end with no closing line; an underscore line not followed by Teams (kept); a 5-underscore line (not a separator); lines with spaces and blank lines; an empty body; a block with no opening line, with the heading in Japanese and English, a trailing space on it, and a blank line before the URL; 32-character lines inside a block (not an end); other text after the opening line; the heading as plain text, and a sentence that starts with `Microsoft Teams` (kept); a quoted mail after a 32-character line (kept); the limits L9 and L10; opening lines of 9 and 10 underscores; closing lines of 39 and 40 underscores → the expected lines. All values are made up | T4 |
 | W3 | B-EV-2, 3.3 | `ConvertTo-EventRecord` on a fake item with null text fields and a one-line body → `""` for nulls, `yyyy-MM-ddTHH:mm:ss` times, boolean `all_day`, integer `busy`, `body` an array of one | T4 |
 | W4 | B-DAY-1, B-DAY-3, 3.3 | `Get-DayEvents` on a fake folder with 0, 1 and 2 (out of order) items → arrays of 0, 1, 2, sorted by start; `IncludeRecurrences` set; the filter of `Get-DayFilter` passed to `Restrict` | T4 |
 | W5 | B-DAY-1, L2 | `Get-DayFilter` for 2026-11-05 → exactly `[Start] < '<a>' AND [End] > '<b>'`, where `<a>` and `<b>` read back, in the current Windows locale, as 2026-11-06 00:00 and 2026-11-05 00:00 | T4 |
@@ -245,9 +245,11 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | B-ANN-1 | `list_events` and `get_event` not marked read-only | M1 |
 | B-RST-4 | the cache kept after a restart | S4 |
 | B-EV-3 (Windows) | a line of 5 underscores starts a Teams block | W2 |
+| B-EV-3 (Windows) | any line of 10 or more underscores ends a Teams block | W2 |
+| B-EV-3 (Windows) | the heading alone starts a Teams block, without a Teams URL after it | W2 |
 | 3.3 (Windows) | `Get-DayEvents` returns its array without the comma operator (one event collapses) | W4 |
 
-Result on 2026-11-05: 21 of 21 caught. Rerun after changing the code:
+Result on 2026-11-07: 23 of 23 caught. Rerun after changing the code:
 
 ```bash
 CALENDULA_WINDOWS_TESTS=1 uv run python scripts/mutation_check.py   # without the variable, the Windows rows are skipped
