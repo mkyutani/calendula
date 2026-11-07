@@ -181,11 +181,12 @@ The fake behaves as the real `subprocess.run` does here: it returns bytes, and `
 | W2 | B-EV-3, L9, L10 | `Get-BodyLines` on: a Teams block in the middle; a Teams block at the end with no closing line; an underscore line not followed by Teams (kept); a 5-underscore line (not a separator); lines with spaces and blank lines; an empty body; a block with no opening line, with the heading in Japanese and English, a trailing space on it, and a blank line before the URL; 32-character lines inside a block (not an end); other text after the opening line; the heading as plain text, and a sentence that starts with `Microsoft Teams` (kept); a quoted mail after a 32-character line (kept); the limits L9 and L10; opening lines of 9 and 10 underscores; closing lines of 39 and 40 underscores → the expected lines. All values are made up | T4 |
 | W3 | B-EV-2, 3.3 | `ConvertTo-EventRecord` on a fake item with null text fields and a one-line body → `""` for nulls, `yyyy-MM-ddTHH:mm:ss` times, boolean `all_day`, integer `busy`, `body` an array of one | T4 |
 | W4 | B-DAY-1, B-DAY-3, 3.3 | `Get-DayEvents` on a fake folder with 0, 1 and 2 (out of order) items → arrays of 0, 1, 2, sorted by start; `IncludeRecurrences` set; the filter of `Get-DayFilter` passed to `Restrict` | T4 |
-| W5 | B-DAY-1, L2 | `Get-DayFilter` for 2026-11-05 → exactly `[Start] < '<a>' AND [End] > '<b>'`, where `<a>` and `<b>` read back, in the current Windows locale, as 2026-11-06 00:00 and 2026-11-05 00:00 | T4 |
+| W5 | 3.3, L2 | `Get-DayFilter` for 2026-11-05 → exactly `[Start] < '<a>' AND [End] > '<b>'`, where `<a>` and `<b>` read back, in the current Windows locale, as 2026-11-07 00:00 and 2026-11-04 00:00: a day wider than 2026-11-05 on each side | T4 |
 | W6 | 3.3 | `ConvertTo-CalendarJson` for days with 0, 1 and 2 events, with Japanese, quotes and `<>` → valid JSON; arrays stay arrays; text unchanged | T4 |
 | W7 | 3.4 | the plumbing: a probe script run through `wscript.exe` and `run_hidden.vbs`, hidden, writes `events.json` with Japanese → read back by `read_result` | T4 |
 | W8 | B-RST-5 | the running check on the real `tasklist.exe`, with an image name that does not exist → not running, in the current Windows locale | T4 |
 | W9 | B-START-5 | the check on the real `reg.exe`: `HKCU\Software` has a subkey; a key that does not exist has none. Only the yes or no is looked at | T4 |
+| W10 | B-DAY-1, B-DAY-2, 3.3 | `Get-DayEvents` on 2026-11-05 with a fake `Restrict` that returns everything, as the real one may for an all-day event in another time zone: an all-day event that ends at 11-05 00:00, one that starts at 11-06 00:00, and a zero-length event at 11-05 00:00 → dropped; an all-day event on 11-05, a meeting past midnight, and an event across the whole day → kept | T4 |
 
 ### 4.10 Acceptance on the real Outlook (T5, manual)
 
@@ -200,7 +201,7 @@ Run on the user's PC, with Outlook (classic) running, after `uv tool install cal
 | X5 | E8 | close Outlook, then `calendula list` | at once, an error saying Outlook (classic) is not running; Outlook stays closed; no events |
 | X6 | R8, B-CACHE-2 | in Claude Code, after `claude mcp add`: "What's on my calendar today?", then again, then "check again, it just changed" | the first answer fetches; the second shows the same fetched time; the third a new one |
 | X7 | R7, B-INS-1 | when a COM error happens (after sleep), ask Claude for the schedule | Claude asks before restarting; after you agree, Outlook restarts and the retry succeeds |
-| X8 | B-DAY-1, B-DAY-2 | `calendula list <first day> <n>` over a multi-day all-day event and a meeting past midnight | each appears on every day it covers, with the spans of spec 3.1; the all-day event not on the day after its last day |
+| X8 | B-DAY-1, B-DAY-2, 3.3 | `calendula list <first day> <n>` over a multi-day all-day event, one in another time zone (UTC, say), and a meeting past midnight | each appears on every day it covers, with the spans of spec 3.1; the all-day events neither on the day before their first day nor on the day after their last day |
 | X9 | R7, B-START-3, B-INS-1 | on a PC with a mail profile, close Outlook and ask Claude for the schedule | Claude asks before starting it; after you agree, Outlook starts and the retry succeeds |
 | X10 | B-START-2 | on a PC with no mail profile, ask Claude for the schedule and agree to starting Outlook | an error saying there is no mail profile; no setup screen appears |
 
@@ -208,7 +209,7 @@ Run on the user's PC, with Outlook (classic) running, after `uv tool install cal
 
 | Requirement | Behavior and interface IDs | Test cases |
 | --- | --- | --- |
-| R1 List events | B-DATE-1–3, B-DAYS-1, B-DAY-1–3, B-EV-1–5, 3.1 | A1–A4, A7, A8, V1–V5, V7–V9, M4, W2–W6, X1, X2, X8 |
+| R1 List events | B-DATE-1–3, B-DAYS-1, B-DAY-1–3, B-EV-1–5, 3.1 | A1–A4, A7, A8, V1–V5, V7–V9, M4, W2–W6, W10, X1, X2, X8 |
 | R2 Event at a time | B-TIME-1, B-PICK-1–5, 3.1 | A5, A6, P1–P8, V6, M5, L3, X3, X4 |
 | R3 Freshness | B-CACHE-1–3, B-CACHE-9 | K1–K6, K13, M7, X6 |
 | R4 Economy | B-CACHE-2, B-CACHE-4, B-CACHE-7 | K2, K5, K7, K8, K11, X6 |
@@ -226,6 +227,7 @@ What the automated levels cannot show, and how it is covered:
 | --- | --- | --- |
 | The COM calls themselves: `New-Object -ComObject Outlook.Application`, `GetDefaultFolder(9)`, `IncludeRecurrences` with `Sort` and `Restrict` | needs Outlook (C1, C5), and reading a real calendar from a development session is avoided (C3) | X1–X4 |
 | Outlook parsing the Restrict dates in a locale other than Japanese (L2) | W5 checks the round trip in the developer's locale only | X1 on each new locale |
+| How the real `Restrict` compares an all-day event in another time zone, and that the wider filter does not miss it | the fake `Restrict` returns everything, and the developer's PC has no mail profile | X8 |
 | How long a real fetch takes, and whether 180 s is enough | timing depends on the PC | X1, X6 |
 | Claude following the instructions (asking before a start or a restart, using `refresh`) | model behavior, not code | X6, X7, X9 |
 | Outlook keeping its mail profiles under the registry key that B-START-5 reads | W9 checks the output of `reg.exe` on another key, and the developer's PC has no mail profile | X9, X10 |
@@ -253,7 +255,10 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | B-PICK-2 | the end of an event made inclusive | P2 |
 | B-PICK-2 | events compared by time of day only, not date and time | P7 |
 | 3.1 span | an event ending at 00:00 of the next day shown as `11-06 00:00` instead of `24:00` | V8 |
-| B-DAY-1 (Windows) | the filter's end condition made `[End] >=` (an all-day event would also appear the day after) | W5 |
+| B-DAY-1 (Windows) | an event that starts at 00:00 of the next day kept | W10 |
+| B-DAY-1 (Windows) | an event that ends at 00:00 of the day kept (an all-day event would also appear the day after) | W10 |
+| 3.3 (Windows) | the filter not widened after the day | W5 |
+| 3.3 (Windows) | the filter not widened before the day | W5 |
 | B-PICK-3 | the earliest running event chosen | P3 |
 | B-PICK-4 | ties go to the later event | P6 |
 | B-CACHE-2 row 3 | a day fetched on that same day treated as final | K3, K6, K8 |
@@ -280,7 +285,7 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | B-EV-3 (Windows) | the heading alone starts a Teams block, without a Teams URL after it | W2 |
 | 3.3 (Windows) | `Get-DayEvents` returns its array without the comma operator (one event collapses) | W4 |
 
-Result on 2026-11-07: 35 of 35 caught. Rerun after changing the code:
+Result on 2026-11-07: 38 of 38 caught. Rerun after changing the code:
 
 ```bash
 CALENDULA_WINDOWS_TESTS=1 uv run python scripts/mutation_check.py   # without the variable, the Windows rows are skipped

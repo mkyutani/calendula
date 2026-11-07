@@ -260,7 +260,7 @@ The script is the only code that talks to Outlook. Its contract:
   One entry per requested day, in order. `events` and `body` are always arrays, even with zero or one element. Text fields are strings, never null. Times are local, `yyyy-MM-ddTHH:mm:ss`
 - **Output** on failure: `error.txt` with `ERROR: <message>`, exit code 1
 - **Field sources** (AppointmentItem properties): `Start`, `End`, `AllDayEvent`, `Subject`, `Location`, `Organizer`, `RequiredAttendees`, `OptionalAttendees`, `Categories`, `BusyStatus`, `Body` (filtered by B-EV-3)
-- **Selection** (B-DAY-1): the default calendar folder (`GetDefaultFolder(9)`), `Items` with `IncludeRecurrences = $true`, sorted by `[Start]`, restricted per day by `[Start] < '<next day 00:00>' AND [End] > '<day 00:00>'`, the dates in the Windows short date-time format (`ToString("g")`), which Outlook parses back
+- **Selection** (B-DAY-1): the default calendar folder (`GetDefaultFolder(9)`), `Items` with `IncludeRecurrences = $true`, sorted by `[Start]`, restricted per day by `[Start] < '<two days later 00:00>' AND [End] > '<the day before 00:00>'`, the dates in the Windows short date-time format (`ToString("g")`), which Outlook parses back. This filter is only coarse, because `Restrict` does not compare every appointment in local time: an all-day event in another time zone can match the day after its last day. So only the items whose `Start` and `End`, which COM gives in local time, overlap the day (B-DAY-1) are kept
 - **Structure:** the parts above are functions (`Get-BodyLines`, `ConvertTo-EventRecord`, `Get-DayFilter`, `Get-DayEvents`, `ConvertTo-CalendarJson`). Only `Invoke-Main` uses COM. Dot-sourcing the script defines the functions without running `Invoke-Main`
 
 ### 3.4 Process boundary (C1, R5)
