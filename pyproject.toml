@@ -1,6 +1,6 @@
 [project]
 name = "calendula"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP server that reads your Outlook (classic) calendar from WSL"
 authors = [{ name = "Miki Yutani", email = "mkyutani@gmail.com" }]
 license = "MIT"

@@ -1,6 +1,6 @@
 # calendula test design
 
-Status: draft for review (0.1.0)
+Status: draft for review (0.2.0)
 
 This document says how the tests verify [spec.md](spec.md): which behavior is checked where, with what technique, and what is left for a person to check on a real PC. A reviewer should be able to approve it by checking three things:
 
@@ -234,11 +234,11 @@ What the automated levels cannot show, and how it is covered:
 
 ## 7. Approval
 
-The design is approved when the reviewer accepts sections 2–6 and answers the open questions Q1 and Q2 of spec.md. The release 0.1.0 is approved when:
+The design is approved when the reviewer accepts sections 2–6 and answers the open questions Q1 and Q2 of spec.md. The release 0.2.0 is approved when:
 
 - T1–T3 pass in CI on Python 3.11, 3.12, 3.13 and 3.14, with ruff clean
 - T4 passes on a WSL PC (`CALENDULA_WINDOWS_TESTS=1 uv run pytest tests/test_windows.py -v`)
-- X1–X7 and X9 pass on the user's PC, and X10 on a PC with no mail profile; X8 is recorded with the answer to Q1
+- X1–X9 pass on the user's PC, and X10 on a PC with no mail profile
 
 ## 8. Evidence that the tests can fail
 
