@@ -118,7 +118,7 @@ TTL is 1 hour in these cases. The clock starts at 2026-11-05 09:00.
 
 | ID | Spec | Condition → expected | Level |
 | --- | --- | --- | --- |
-| O1 | E1 | `wslpath` and `wscript.exe` not found → error naming them; no restart hint | T2 |
+| O1 | E1 | `wslpath`, `wscript.exe` and `tasklist.exe` not found → error naming them; no restart hint | T2 |
 | O2 | 3.4 steps 1–3 | a fetch writes `start.txt` (`yyyyMMdd`) and `days.txt`; the script copy is the source as UTF-16LE with a BOM; `run_hidden.vbs` is copied; `wscript.exe //B //Nologo <vbs> <ps1>` gets Windows paths and a 180-second timeout | T2 |
 | O3 | 3.4 step 5 | the temporary directory is gone after a successful fetch and after a failed one | T2 |
 | O4 | E2 | `error.txt` with each of the six COM patterns → that message plus the restart hint | T2 |
@@ -127,6 +127,8 @@ TTL is 1 hour in these cases. The clock starts at 2026-11-05 09:00.
 | O7 | E5 | the run times out → "did not answer within 180 seconds" plus the hint | T2 |
 | O8 | E6 | `events.json` that is not JSON, or lacks `date` → "Unexpected output" | T2 |
 | O9 | 3.3 | `events.json` in UTF-8 with and without a BOM, with Japanese → read the same | T2 |
+| O10 | E8, 3.4 | `OUTLOOK.EXE` is not running → exactly the E8 message, no restart hint; `wscript.exe` is not run and no temporary directory is created | T2 |
+| O11 | E9 | `tasklist.exe` times out → exactly the E9 message, no restart hint; `wscript.exe` is not run. Its limit is 30 seconds | T2 |
 
 ### 4.6 Restarting Outlook — `tests/test_restart.py`
 
@@ -187,7 +189,7 @@ Run on the user's PC, with Outlook (classic) running, after `uv tool install cal
 | X2 | R1 | `calendula list <Monday> 7` | a week matches Outlook's week view |
 | X3 | R2, B-EV-3 | `calendula show HH:MM` on a Teams meeting with attendees | attendees listed; the Teams join block gone; the rest of the body kept |
 | X4 | B-PICK-4 | `calendula show` at a time between meetings | the note line and the nearest meeting |
-| X5 | E2, E4 | close Outlook, then `calendula list` | an error saying Outlook gave no answer (or a COM error), no events |
+| X5 | E8 | close Outlook, then `calendula list` | at once, an error saying Outlook (classic) is not running; Outlook stays closed; no events |
 | X6 | R8, B-CACHE-2 | in Claude Code, after `claude mcp add`: "What's on my calendar today?", then again, then "check again, it just changed" | the first answer fetches; the second shows the same fetched time; the third a new one |
 | X7 | R7, B-INS-1 | when a COM error happens (after sleep), ask Claude for the schedule | Claude asks before restarting; after you agree, Outlook restarts and the retry succeeds |
 | X8 | B-DAY-1, B-DAY-2 | `calendula list <first day> <n>` over a multi-day all-day event and a meeting past midnight | each appears on every day it covers, with the spans of spec 3.1; the all-day event not on the day after its last day |
@@ -201,7 +203,7 @@ Run on the user's PC, with Outlook (classic) running, after `uv tool install cal
 | R3 Freshness | B-CACHE-1–3, B-CACHE-9 | K1–K6, K13, M7, X6 |
 | R4 Economy | B-CACHE-2, B-CACHE-4, B-CACHE-7 | K2, K5, K7, K8, K11, X6 |
 | R5 Privacy | B-CACHE-8, 3.4 step 5 | K12, O3 (and by inspection: no code writes events to disk) |
-| R6 Failures | E1–E7, B-ERR-1, B-ERR-2, B-CACHE-6, B-INS-1 | O1, O4–O8, K10, M3, M6, M9, L4, X5, X7 |
+| R6 Failures | E1–E9, B-ERR-1, B-ERR-2, B-CACHE-6, B-INS-1 | O1, O4–O8, O10, O11, K10, M3, M6, M9, L4, X5, X7 |
 | R7 Recovery | B-RST-1–5 | S1–S5, W8, X7 |
 | R8 Interfaces | 3.1, 3.2, B-ANN-1 | M1, M2, M8, L1–L5 |
 | R9 Platform | 3.3, 3.4 | O2, O9, W1–W7, CI on Python 3.11–3.14, X1 |
@@ -250,9 +252,11 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | B-CACHE-4 | the fetch covers only as many days as need fetching, from the first | K8 |
 | B-CACHE-7 | no lock | K11 |
 | E2 | `RPC_E_` not recognized as a COM error | O4 |
+| E8 | no running check: a fetch runs the script with Outlook closed | O10, O11 |
+| E9 | no limit on `tasklist.exe` | O11 |
 | B-ANN-1 | `list_events` and `get_event` not marked read-only | M1 |
 | B-RST-4 | the cache kept after a restart | S4 |
-| B-RST-5 | the running check decodes the output of `tasklist.exe` as text again | S1, S2, S3, S5, W8 |
+| B-RST-5 | the running check decodes the output of `tasklist.exe` as text again | O2, O3, O7, O10, S1, S2, S3, S5, W8 |
 | B-RST-5 | the running check made case-sensitive | S5 |
 | B-ERR-1 | an unexpected exception is left to the SDK, which answers without its text | M9 |
 | B-EV-3 (Windows) | a line of 5 underscores starts a Teams block | W2 |
@@ -260,7 +264,7 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | B-EV-3 (Windows) | the heading alone starts a Teams block, without a Teams URL after it | W2 |
 | 3.3 (Windows) | `Get-DayEvents` returns its array without the comma operator (one event collapses) | W4 |
 
-Result on 2026-11-07: 28 of 28 caught. Rerun after changing the code:
+Result on 2026-11-07: 30 of 30 caught. Rerun after changing the code:
 
 ```bash
 CALENDULA_WINDOWS_TESTS=1 uv run python scripts/mutation_check.py   # without the variable, the Windows rows are skipped

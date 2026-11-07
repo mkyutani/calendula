@@ -15,6 +15,7 @@ from .events import Event, parse_days
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 FETCH_TIMEOUT = 180  # seconds
+TASKLIST_TIMEOUT = 30  # seconds
 RESTART_WAIT = 120  # seconds to wait for OUTLOOK.EXE to appear
 RESTART_SETTLE = 15  # seconds to wait after it appears, before COM answers
 COM_ERROR_RE = re.compile(
@@ -97,7 +98,10 @@ def read_result(workdir: Path) -> dict[date, list[Event]]:
 
 def fetch(start: date, days: int) -> dict[date, list[Event]]:
     """Events for `days` days from `start`, straight from Outlook."""
-    _require("wslpath", "wscript.exe")
+    _require("wslpath", "wscript.exe", "tasklist.exe")
+    # Creating Outlook.Application would start a closed Outlook, which can stop at its setup screen.
+    if not _outlook_running():
+        raise OutlookError("Outlook (classic) is not running. Start it and try again.")
     with tempfile.TemporaryDirectory(prefix="calendula-") as tmp:
         workdir = Path(tmp)
         (workdir / "start.txt").write_text(f"{start:%Y%m%d}\n", encoding="ascii")
@@ -108,11 +112,17 @@ def fetch(start: date, days: int) -> dict[date, list[Event]]:
 
 def _outlook_running() -> bool:
     # Bytes, not text: with no match, tasklist.exe answers in the console code page (B-RST-5).
-    r = subprocess.run(
-        ["tasklist.exe", "/fi", "IMAGENAME eq OUTLOOK.EXE", "/fo", "csv", "/nh"],
-        capture_output=True,
-        check=False,
-    )
+    try:
+        r = subprocess.run(
+            ["tasklist.exe", "/fi", "IMAGENAME eq OUTLOOK.EXE", "/fo", "csv", "/nh"],
+            capture_output=True,
+            check=False,
+            timeout=TASKLIST_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        raise OutlookError(
+            f"tasklist.exe did not answer within {TASKLIST_TIMEOUT} seconds."
+        ) from None
     return b'"outlook.exe"' in r.stdout.lower()
 
 

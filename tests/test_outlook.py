@@ -6,6 +6,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from conftest import NO_MATCH
 
 from calendula import outlook
 
@@ -16,13 +17,23 @@ DAY = date(2026, 11, 5)
 def windows(monkeypatch, tmp_path):
     """Pretend to be WSL. Each wscript run calls `script(workdir)`, which plays the PowerShell side."""
     monkeypatch.setattr(outlook.shutil, "which", lambda name: f"/usr/bin/{name}")
-    state = {"runs": [], "workdirs": [], "script": lambda w: None}
+    state = {"runs": [], "workdirs": [], "script": lambda w: None, "running": True}
 
     def fake_run(cmd, **kwargs):
         if cmd[0] == "wslpath":
             return subprocess.CompletedProcess(
                 cmd, 0, stdout="C:\\fake" + cmd[-1].replace("/", "\\") + "\n"
             )
+        if cmd[0] == "tasklist.exe":
+            state["tasklist"] = kwargs
+            if isinstance(state["running"], Exception):
+                raise state["running"]
+            out = (
+                b'"OUTLOOK.EXE","1234","Console","1","200,000 K"\r\n'
+                if state["running"]
+                else NO_MATCH
+            )
+            return subprocess.CompletedProcess(cmd, 0, stdout=out)
         state["runs"].append((cmd, kwargs))
         state["script"](state["workdirs"][-1])
         return subprocess.CompletedProcess(cmd, 0)
@@ -58,6 +69,7 @@ def test_o1_outside_wsl(monkeypatch):
         "needs WSL" in str(e.value)
         and "wslpath" in str(e.value)
         and "wscript.exe" in str(e.value)
+        and "tasklist.exe" in str(e.value)
     )
     assert not e.value.restart
 
@@ -130,13 +142,11 @@ def test_o6_no_output(tmp_path):
     assert e.value.restart and str(e.value).startswith("Outlook gave no answer")
 
 
-def test_o7_timeout(windows, monkeypatch):
-    def hang(cmd, **kwargs):
-        if cmd[0] == "wslpath":
-            return subprocess.CompletedProcess(cmd, 0, stdout="C:\\x\n")
-        raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+def test_o7_timeout(windows):
+    def hang(workdir):
+        raise subprocess.TimeoutExpired("wscript.exe", outlook.FETCH_TIMEOUT)
 
-    monkeypatch.setattr(outlook.subprocess, "run", hang)
+    windows["script"] = hang
     with pytest.raises(outlook.OutlookError) as e:
         outlook.fetch(DAY, 1)
     assert e.value.restart and str(e.value).startswith(
@@ -173,3 +183,22 @@ def test_o9_utf8_with_or_without_a_bom(tmp_path, encoding):
         json.dumps(data, ensure_ascii=False), encoding=encoding
     )
     assert outlook.read_result(tmp_path)[DAY][0].subject == "日本語の件名"
+
+
+def test_o10_outlook_not_running(windows):
+    windows["running"] = False
+    with pytest.raises(outlook.OutlookError) as e:
+        outlook.fetch(DAY, 1)
+    assert str(e.value) == "Outlook (classic) is not running. Start it and try again."
+    assert not e.value.restart
+    assert windows["runs"] == [] and windows["workdirs"] == []
+
+
+def test_o11_tasklist_that_never_answers(windows):
+    windows["running"] = subprocess.TimeoutExpired("tasklist.exe", 30)
+    with pytest.raises(outlook.OutlookError) as e:
+        outlook.fetch(DAY, 1)
+    assert str(e.value) == "tasklist.exe did not answer within 30 seconds."
+    assert not e.value.restart
+    assert windows["tasklist"]["timeout"] == outlook.TASKLIST_TIMEOUT == 30
+    assert windows["runs"] == [] and windows["workdirs"] == []

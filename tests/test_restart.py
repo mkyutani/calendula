@@ -3,16 +3,11 @@
 import subprocess
 
 import pytest
-from conftest import FakeOutlook, call_tool, text
+from conftest import NO_MATCH, FakeOutlook, call_tool, text
 
 from calendula import outlook
 from calendula.cache import Calendar
 from calendula.server import build_server
-
-# What tasklist.exe prints on Japanese Windows when nothing matches: CP932, not UTF-8.
-NO_MATCH = "情報: 指定された条件に一致するタスクは実行されていません。\r\n".encode(
-    "cp932"
-)
 
 
 class FakeWindows:

@@ -10,6 +10,11 @@ from calendula.events import Event
 
 DAY = date(2026, 11, 5)  # a Thursday
 
+# What tasklist.exe prints on Japanese Windows when nothing matches: CP932, not UTF-8.
+NO_MATCH = "情報: 指定された条件に一致するタスクは実行されていません。\r\n".encode(
+    "cp932"
+)
+
 
 def ev(start: str, end: str, subject: str = "x", **kw) -> Event:
     """An event from 'HH:MM' times on DAY, or full ISO datetimes."""
