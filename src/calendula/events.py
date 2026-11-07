@@ -35,7 +35,11 @@ class Event:
     def from_json(cls, d: dict) -> Event:
         def s(key: str) -> str:
             v = d.get(key)
-            return "" if v is None else str(v).strip()
+            if v is None:
+                return ""
+            # One line, whatever line breaks the field has (B-EV-5).
+            lines = (line.strip() for line in str(v).splitlines())
+            return " ".join(line for line in lines if line)
 
         body = d.get("body") or []
         if isinstance(body, str):  # PowerShell may collapse a one-item array
