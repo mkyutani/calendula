@@ -25,9 +25,25 @@ MUTATIONS = [
     (
         "B-EV-2",
         "events.py",
-        'return "" if v is None else str(v).strip()',
-        "return str(v).strip()",
+        """            if v is None:
+                return ""
+""",
+        "",
         ["v1"],
+    ),
+    (
+        "B-EV-5 join",
+        "events.py",
+        'return " ".join(line for line in lines if line)',
+        'return "".join(line for line in lines if line)',
+        ["v9"],
+    ),
+    (
+        "B-EV-5 line breaks",
+        "events.py",
+        "for line in str(v).splitlines())",
+        'for line in str(v).split("\\n"))',
+        ["v9"],
     ),
     (
         "B-DAY-3",
@@ -160,6 +176,20 @@ MUTATIONS = [
         "get_calendar.ps1",
         "-match '^_{10,}$'",
         "-match '^_{5,}$'",
+        ["w2"],
+    ),
+    (
+        "B-EV-3 end (Windows)",
+        "get_calendar.ps1",
+        "-match '^_{40,}$'",
+        "-match '^_{10,}$'",
+        ["w2"],
+    ),
+    (
+        "B-EV-3 URL (Windows)",
+        "get_calendar.ps1",
+        "$next -match 'teams\\.microsoft\\.'",
+        "$true",
         ["w2"],
     ),
     (

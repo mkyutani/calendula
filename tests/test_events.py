@@ -2,6 +2,7 @@
 
 from datetime import date, datetime, timedelta
 
+import pytest
 from conftest import DAY, ev
 
 from calendula.events import BUSY, day_heading, parse_days
@@ -190,3 +191,51 @@ def test_v8_time_span_on_each_day():
     late = ev("2026-11-05T23:00", "2026-11-06T01:00", "Late")
     assert late.summary(d6) == "11-05 23:00-01:00  Late"
     assert late.detail(d6) == "11-05 23:00-01:00  Late"
+
+
+SINGLE_LINE_FIELDS = (
+    "subject",
+    "location",
+    "organizer",
+    "required",
+    "optional",
+    "categories",
+)
+
+
+def parse_one(**fields):
+    times = {"start": "2026-11-05T10:00:00", "end": "2026-11-05T11:00:00"}
+    return parse_days(day_json([{**times, **fields}]))[DAY][0]
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("Weekly\nsync", "Weekly sync"),
+        ("Weekly\r\nsync", "Weekly sync"),
+        ("Weekly\rsync", "Weekly sync"),
+        ("Weekly\x0bsync", "Weekly sync"),
+        ("Weekly\u2028sync", "Weekly sync"),
+        ("Weekly\n\n\r\nsync", "Weekly sync"),
+        ("Weekly  \n  sync", "Weekly sync"),
+        ("Weekly\u3000\n\u3000sync", "Weekly sync"),
+        ("Weekly\n \nsync", "Weekly sync"),
+        ("\nWeekly sync\n", "Weekly sync"),
+        ("Weekly  sync", "Weekly  sync"),
+        ("週次\u3000定例", "週次\u3000定例"),
+        ("\n \n", ""),
+    ],
+)
+def test_v9_line_breaks_in_single_line_fields(raw, expected):
+    e = parse_one(**dict.fromkeys(SINGLE_LINE_FIELDS, raw))
+    assert [getattr(e, f) for f in SINGLE_LINE_FIELDS] == [expected] * 6
+
+
+def test_v9_the_summary_stays_on_one_line_and_the_body_is_unchanged():
+    e = parse_one(
+        subject="Weekly sync\n(round 3)",
+        location="Room A",
+        body=["First  line", "Second\u3000line"],
+    )
+    assert e.summary(DAY) == "10:00-11:00  Weekly sync (round 3)  [Room A]"
+    assert e.body == ("First  line", "Second\u3000line")
