@@ -149,6 +149,13 @@ MUTATIONS = [
         ["o11"],
     ),
     (
+        "3.2 hints",
+        "cli.py",
+        'print(f"calendula: {e.message}", file=sys.stderr)',
+        'print(f"calendula: {e}", file=sys.stderr)',
+        ["l6"],
+    ),
+    (
         "B-ANN-1",
         "server.py",
         "READ_ONLY = ToolAnnotations(readOnlyHint=True,",

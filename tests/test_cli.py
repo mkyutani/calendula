@@ -81,6 +81,16 @@ def test_l4_outlook_errors_exit_1(monkeypatch, capsys):
     assert capsys.readouterr().err.startswith("calendula: Outlook gave no answer")
 
 
+@pytest.mark.parametrize("hint", [{"restart": True}, {"start": True}])
+def test_l6_the_command_line_leaves_out_the_hints(monkeypatch, capsys, hint):
+    def broken(start, days):
+        raise outlook.OutlookError("Outlook is not answering.", **hint)
+
+    monkeypatch.setattr(cli.outlook, "fetch", broken)
+    assert cli.main(["list"]) == 1
+    assert capsys.readouterr().err == "calendula: Outlook is not answering.\n"
+
+
 def test_l5_no_command_runs_the_server(monkeypatch):
     ran = []
 

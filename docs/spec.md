@@ -145,6 +145,8 @@ The restart hint is appended on its own line: `Outlook's COM connection seems br
 
 E8 appends the start hint in the same way: `Ask the user whether Outlook may be started; if they agree, call start_outlook and then retry once.`
 
+The hints tell the model which tool to call, so only the MCP tools show them (3.2).
+
 | ID | Rule |
 | --- | --- |
 | B-ERR-1 | A tool that fails returns an MCP tool error (`isError: true`) carrying the message, never a normal result. A failure that is not in the table above (an unexpected exception) carries its type and text, `<type>: <text>`, and its traceback goes to the log (standard error) |
@@ -241,7 +243,7 @@ Agenda
 | `calendula show TIME [--date DATE]` | print the event in the `get_event` format |
 | `calendula --version` | print `calendula <version>` |
 
-The command line always fetches (it has no cache). Exit status: 0 success, 1 error (message `calendula: <message>` on standard error), 2 usage error.
+The command line always fetches (it has no cache). Exit status: 0 success, 1 error (message `calendula: <message>` on standard error, without the start or restart hint: the command line has no such tools), 2 usage error.
 
 ### 3.3 PowerShell script `get_calendar.ps1` (C1)
 

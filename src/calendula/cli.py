@@ -79,7 +79,11 @@ def main(argv: list[str] | None = None) -> int:
     func = getattr(args, "func", _serve)
     try:
         return func(args)
-    except (ValueError, outlook.OutlookError) as e:
+    except outlook.OutlookError as e:
+        # The hints name MCP tools, which the command line does not have (spec 3.2).
+        print(f"calendula: {e.message}", file=sys.stderr)
+        return 1
+    except ValueError as e:
         print(f"calendula: {e}", file=sys.stderr)
         return 1
 

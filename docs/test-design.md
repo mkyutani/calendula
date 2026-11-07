@@ -171,6 +171,7 @@ The fake behaves as the real `subprocess.run` does here: it returns bytes, and `
 | L3 | 3.2 | `show 12:00 --date 2026-11-05` → the note line and the nearest event | T2 |
 | L4 | 3.2, E7 | invalid date, 0 days, a failing fetch → exit 1, `calendula: <message>` on standard error | T2 |
 | L5 | 3.2 | no command → the server runs on stdio | T2 |
+| L6 | 3.2 | a fetch that fails with the restart hint, and one with the start hint → exit 1, exactly `calendula: <message>` on standard error, no hint | T2 |
 
 ### 4.9 Windows, without Outlook — `tests/test_windows.py` (opt-in)
 
@@ -214,7 +215,7 @@ Run on the user's PC, with Outlook (classic) running, after `uv tool install cal
 | R5 Privacy | B-CACHE-8, 3.4 step 5 | K12, O3 (and by inspection: no code writes events to disk) |
 | R6 Failures | E1–E9, B-ERR-1, B-ERR-2, B-CACHE-6, B-INS-1 | O1, O4–O8, O10, O11, K10, M3, M6, M9, L4, X5, X7 |
 | R7 Recovery | B-RST-1–5, B-START-1–5 | S1–S11, W8, W9, X7, X9, X10 |
-| R8 Interfaces | 3.1, 3.2, B-ANN-1 | M1, M2, M8, L1–L5 |
+| R8 Interfaces | 3.1, 3.2, B-ANN-1 | M1, M2, M8, L1–L6 |
 | R9 Platform | 3.3, 3.4 | O2, O9, W1–W7, CI on Python 3.11–3.14, X1 |
 
 ## 6. Residual risks
@@ -264,6 +265,7 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | E2 | `RPC_E_` not recognized as a COM error | O4 |
 | E8 | no running check: a fetch runs the script with Outlook closed | O10, O11 |
 | E9 | no limit on `tasklist.exe` and `reg.exe` | O11 |
+| 3.2 | the command line shows the start and restart hints | L6 |
 | B-ANN-1 | `list_events` and `get_event` not marked read-only | M1 |
 | B-RST-4 | the cache kept after a restart | S4 |
 | B-RST-5 | the output of Windows commands is decoded as text again | S1–S3, S5–S9, S11, W8, W9 |
@@ -278,7 +280,7 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | B-EV-3 (Windows) | the heading alone starts a Teams block, without a Teams URL after it | W2 |
 | 3.3 (Windows) | `Get-DayEvents` returns its array without the comma operator (one event collapses) | W4 |
 
-Result on 2026-11-07: 34 of 34 caught. Rerun after changing the code:
+Result on 2026-11-07: 35 of 35 caught. Rerun after changing the code:
 
 ```bash
 CALENDULA_WINDOWS_TESTS=1 uv run python scripts/mutation_check.py   # without the variable, the Windows rows are skipped

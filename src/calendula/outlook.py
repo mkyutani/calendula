@@ -33,10 +33,14 @@ START_HINT = "Ask the user whether Outlook may be started; if they agree, call s
 
 
 class OutlookError(Exception):
-    """Fetching from Outlook failed. `restart` or `start` is True when doing that to Outlook is likely to help."""
+    """Fetching from Outlook failed. `restart` or `start` is True when doing that to Outlook is likely to help.
+
+    str() is the text for the model: the message and its hint. `message` is the message alone.
+    """
 
     def __init__(self, message: str, restart: bool = False, start: bool = False):
         super().__init__(message)
+        self.message = message
         self.restart = restart
         self.start = start
 
