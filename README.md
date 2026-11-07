@@ -13,7 +13,7 @@ An [MCP](https://modelcontextprotocol.io/) server that lets Claude Code (or any 
 ## Requirements
 
 - Windows with **Outlook (classic)** running. The new Outlook has no COM interface and does not work
-- **WSL**: calendula runs in the Linux distribution and calls `wscript.exe` and `powershell.exe` through WSL interop
+- **WSL**: calendula runs in the Linux distribution and calls `wscript.exe`, `powershell.exe` and `tasklist.exe` through WSL interop
 - Python 3.11 or later
 
 ## Install
@@ -85,12 +85,13 @@ calendula --version
 ## Troubleshooting
 
 - **`CO_E_SERVER_EXEC_FAILURE` (0x80080005) and similar COM errors**: Outlook's COM connection often breaks after sleep or a network change. Restart Outlook (Claude will ask before calling `restart_outlook`)
+- **`Outlook (classic) is not running`**: start Outlook and try again. calendula does not start it for you when reading the calendar: a closed Outlook can stop at its setup screen, and the read would hang
 - **`Outlook gave no answer`**: check that Outlook (classic) is running
 - **`calendula needs WSL ...`**: calendula only works inside WSL on a Windows PC with Outlook
 
 ## How it works
 
-For each fetch, calendula writes `get_calendar.ps1` (as UTF-16 with a BOM, which Windows PowerShell 5.1 reads correctly) into a temporary directory under `/tmp`, and runs it hidden through `wscript.exe` and `run_hidden.vbs`, using the `\\wsl.localhost\...` path. The script reads the default calendar folder through `Outlook.Application`, including recurring events, and writes `events.json`, which calendula parses.
+For each fetch, calendula checks with `tasklist.exe` that Outlook is running, then writes `get_calendar.ps1` (as UTF-16 with a BOM, which Windows PowerShell 5.1 reads correctly) into a temporary directory under `/tmp`, and runs it hidden through `wscript.exe` and `run_hidden.vbs`, using the `\\wsl.localhost\...` path. The script reads the default calendar folder through `Outlook.Application`, including recurring events, and writes `events.json`, which calendula parses.
 
 ## Development
 

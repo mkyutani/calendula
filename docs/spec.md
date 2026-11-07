@@ -129,13 +129,15 @@ Why: a day that was over when it was fetched will not change any more (row 3). T
 
 | ID | Condition | Message | Restart hint |
 | --- | --- | --- | --- |
-| E1 | `wslpath` or `wscript.exe` is missing (not WSL) | `calendula needs WSL with Outlook (classic) on Windows; not found: <commands>` | no |
+| E1 | `wslpath`, `wscript.exe` or `tasklist.exe` is missing (not WSL) | `calendula needs WSL with Outlook (classic) on Windows; not found: <commands>` | no |
 | E2 | The script reported an error that looks like a broken COM connection: it contains `CO_E_SERVER_EXEC_FAILURE`, `80080005`, `800706BA`, `800706BE`, `80010108` or `RPC_E_` | the script's message | yes |
 | E3 | The script reported any other error | the script's message | no |
 | E4 | The script finished without writing a result | `Outlook gave no answer (is Outlook (classic) running?).` | yes |
 | E5 | The script did not finish within 180 seconds | `Outlook did not answer within 180 seconds.` | yes |
 | E6 | The result is not valid | `Unexpected output from Outlook: <detail>` | no |
 | E7 | An argument is invalid (B-DATE-3, B-DAYS-1, B-TIME-1) | `invalid date ...`, `invalid time ...`, or the range error | no |
+| E8 | `OUTLOOK.EXE` is not running when a fetch starts. The script is not run, so a fetch never starts Outlook (creating `Outlook.Application` would, and a PC with no mail profile then stops at the setup screen) | `Outlook (classic) is not running. Start it and try again.` | no |
+| E9 | `tasklist.exe` did not finish within 30 seconds | `tasklist.exe did not answer within 30 seconds.` | no |
 
 The restart hint is appended on its own line: `Outlook's COM connection seems broken. Ask the user whether Outlook may be closed and restarted (unsaved drafts are lost); if they agree, call restart_outlook and then retry once.`
 
@@ -152,7 +154,7 @@ The restart hint is appended on its own line: `Outlook's COM connection seems br
 | B-RST-2 | Outlook is started. calendula waits until `OUTLOOK.EXE` appears (checking every 3 seconds, at most 120 seconds, otherwise an error), then 15 more seconds for COM to answer |
 | B-RST-3 | The answer says what happened: `Outlook was closed.` or `Outlook was not running.`, then `Outlook was started again.` |
 | B-RST-4 | After a successful restart, the cache is emptied |
-| B-RST-5 | The running check (B-RST-1, B-RST-2) looks for the image name in the output of `tasklist.exe` as bytes, ignoring case. With no match, `tasklist.exe` prints a message in the console code page (CP932 on Japanese Windows), so the output is not decoded |
+| B-RST-5 | The running check (B-RST-1, B-RST-2, E8) looks for the image name in the output of `tasklist.exe` as bytes, ignoring case. With no match, `tasklist.exe` prints a message in the console code page (CP932 on Japanese Windows), so the output is not decoded |
 
 ### 2.8 Guidance for the model (R6, R8)
 
@@ -251,7 +253,7 @@ The script is the only code that talks to Outlook. Its contract:
 
 ### 3.4 Process boundary (C1, R5)
 
-For each fetch, calendula:
+For each fetch, calendula first checks that `OUTLOOK.EXE` is running (E8, E9). Only then does it:
 
 1. creates a temporary directory under `/tmp` (prefix `calendula-`), and writes `start.txt` and `days.txt`
 2. copies `get_calendar.ps1` into it as UTF-16LE with a BOM (Windows PowerShell 5.1 reads a BOM-less file in the ANSI code page) and copies `run_hidden.vbs`
@@ -289,6 +291,7 @@ cli.py ──> outlook.py (no cache) and events.py
 | L4 | A canceled meeting that is still in the calendar is shown as it is (its subject usually starts with "Canceled:") | It is what Outlook shows |
 | L5 | Times are Outlook's local times; there is no time zone handling | One user, one PC |
 | L6 | The body is returned whole and may be long | The model may need any part of it; the Teams block, the longest boilerplate, is removed |
+| L7 | Outlook left open at its setup screen passes the running check, so the fetch still ends in E5 after 180 seconds | It should be rare: a fetch no longer opens that screen (E8), so a person has to open it and leave it |
 
 | ID | Question for the reviewer | Decision |
 | --- | --- | --- |

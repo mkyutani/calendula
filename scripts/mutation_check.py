@@ -115,6 +115,22 @@ MUTATIONS = [
     ),
     ("E2", "outlook.py", "|80010108|RPC_E_", "|80010108", ["o4"]),
     (
+        "E8",
+        "outlook.py",
+        """    if not _outlook_running():
+        raise OutlookError("Outlook (classic) is not running. Start it and try again.")
+""",
+        "",
+        ["o10"],
+    ),
+    (
+        "E9",
+        "outlook.py",
+        "            timeout=TASKLIST_TIMEOUT,\n",
+        "",
+        ["o11"],
+    ),
+    (
         "B-ANN-1",
         "server.py",
         "READ_ONLY = ToolAnnotations(readOnlyHint=True,",
@@ -125,14 +141,24 @@ MUTATIONS = [
     (
         "B-RST-5 text",
         "outlook.py",
-        """        capture_output=True,
-        check=False,
-    )
+        """            capture_output=True,
+            check=False,
+            timeout=TASKLIST_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        raise OutlookError(
+            f"tasklist.exe did not answer within {TASKLIST_TIMEOUT} seconds."
+        ) from None
     return b'"outlook.exe"' in r.stdout.lower()""",
-        """        capture_output=True,
-        text=True,
-        check=False,
-    )
+        """            capture_output=True,
+            text=True,
+            check=False,
+            timeout=TASKLIST_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        raise OutlookError(
+            f"tasklist.exe did not answer within {TASKLIST_TIMEOUT} seconds."
+        ) from None
     return '"outlook.exe"' in r.stdout.lower()""",
         ["s5"],
     ),
