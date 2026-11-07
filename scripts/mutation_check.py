@@ -146,6 +146,20 @@ MUTATIONS = [
         ["w2"],
     ),
     (
+        "B-EV-3 end (Windows)",
+        "get_calendar.ps1",
+        "-match '^_{40,}$'",
+        "-match '^_{10,}$'",
+        ["w2"],
+    ),
+    (
+        "B-EV-3 URL (Windows)",
+        "get_calendar.ps1",
+        "$next -match 'teams\\.microsoft\\.'",
+        "$true",
+        ["w2"],
+    ),
+    (
         "B-DAY-1 (Windows)",
         "get_calendar.ps1",
         "' AND [End] > '",

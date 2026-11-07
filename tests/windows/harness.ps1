@@ -13,7 +13,10 @@ $errs = $null
 $r.parse_errors = @($errs | ForEach-Object { $_.Message })
 
 # W2: Get-BodyLines
-$u = "_" * 16
+function Join-Body { $args -join "`r`n" }
+$u   = "_" * 80
+$s32 = "_" * 32
+$url = "https://teams.microsoft.invalid/meet/000?p=x"
 $bodies = [ordered]@{
     teams_middle = "Agenda`r`n`r`n1. Budget`r`n$u`r`nMicrosoft Teams meeting`r`nJoin: https://example.invalid/x`r`n$u`r`nThanks"
     teams_end    = "Agenda`r`n$u`r`n`r`nMicrosoft Teams meeting`r`nMeeting ID: 123"
@@ -21,6 +24,19 @@ $bodies = [ordered]@{
     short_line   = "_____`r`nMicrosoft Teams`r`nkept"
     spaces       = "  a  `r`n`r`n`tb`t`n`n"
     empty        = ""
+    no_opening   = Join-Body "Text of the invitation" "" "Microsoft Teams 会議 " "参加する: $url" "会議 ID: 000 000" "パスコード: x" $s32 "携帯電話でダイヤルイン" "+81 0-0000-0000,,000# 日本" $s32 "開催者向け" "会議のオプション: $url"
+    no_opening_en = Join-Body "Text" "Microsoft Teams meeting" "" "Join: $url" "Meeting ID: 000 000"
+    inner_lines  = Join-Body "Before" $u "Microsoft Teams 会議" "参加する: $url" $s32 "携帯電話でダイヤルイン" $s32 "開催者向け" $u "After"
+    need_help    = Join-Body "Before" $u "Microsoft Teams Need help?" "Join: $url" $s32 "Dial in" $s32 $u "After"
+    plain_heading = Join-Body "開催形式" "Microsoft Teams 会議" "議題"
+    sentence     = Join-Body "Microsoft Teams で開催します" $url "議題"
+    quoted_32    = Join-Body "Hi" $s32 "From: Someone" "Old text"
+    limit_url    = Join-Body "Microsoft Teams 会議" $url "議題"
+    limit_end    = Join-Body "Before" $s32 "Microsoft Teams meeting" "Join: $url" $s32 "After"
+    open_9       = Join-Body "Before" ("_" * 9) "Microsoft Teams meeting" "After"
+    open_10      = Join-Body "Before" ("_" * 10) "Microsoft Teams meeting" "After"
+    close_39     = Join-Body "Before" $u "Microsoft Teams meeting" ("_" * 39) "After"
+    close_40     = Join-Body "Before" $u "Microsoft Teams meeting" ("_" * 40) "After"
 }
 $r.bodies = [ordered]@{}
 foreach ($k in $bodies.Keys) { $r.bodies[$k] = (Get-BodyLines $bodies[$k]).ToArray() }
