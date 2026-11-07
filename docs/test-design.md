@@ -79,6 +79,7 @@ Columns: **ID**, the spec IDs it verifies, the condition and the expected result
 | V6 | 3.1 | detail: labels in the fixed order, only non-empty ones, a blank line before the body; no body → no blank line | T1 |
 | V7 | 3.1 | the day heading for seven consecutive days → `Mon`…`Sun` and the fetched time | T1 |
 | V8 | B-DAY-2, 3.1 | the time span on each day of: 09:00–10:00; 23:00–24:00; 23:00–01:00 (both days); 11-04 09:00 to 11-06 17:00 (each of the three days); a three-day all-day event → exactly the six forms of the span table | T1 |
+| V9 | B-EV-5, 3.1 | each single-line field with `\n`, `\r\n`, `\r`, vertical tab, `U+2028`, several line breaks in a row, and spaces and full-width spaces around a line break → one space; spaces and full-width spaces inside a line are kept; the summary line stays on one line; the body is unchanged | T1 |
 
 ### 4.3 The event at a time — `tests/test_pick.py`
 
@@ -190,7 +191,7 @@ Run on the user's PC, with Outlook (classic) running, after `uv tool install cal
 
 | Requirement | Behavior and interface IDs | Test cases |
 | --- | --- | --- |
-| R1 List events | B-DATE-1–3, B-DAYS-1, B-DAY-1–3, B-EV-1–4, 3.1 | A1–A4, A7, A8, V1–V5, V7, V8, M4, W2–W6, X1, X2, X8 |
+| R1 List events | B-DATE-1–3, B-DAYS-1, B-DAY-1–3, B-EV-1–5, 3.1 | A1–A4, A7, A8, V1–V5, V7–V9, M4, W2–W6, X1, X2, X8 |
 | R2 Event at a time | B-TIME-1, B-PICK-1–5, 3.1 | A5, A6, P1–P8, V6, M5, L3, X3, X4 |
 | R3 Freshness | B-CACHE-1–3, B-CACHE-9 | K1–K6, K13, M7, X6 |
 | R4 Economy | B-CACHE-2, B-CACHE-4, B-CACHE-7 | K2, K5, K7, K8, K11, X6 |
@@ -228,6 +229,8 @@ A passing test suite says little unless it fails when the code is wrong. `script
 | B-DATE-1 | a date without a year gets the year 2000 | A3 |
 | B-TIME-1 | hour 24 accepted | A6 |
 | B-EV-2 | a null text field becomes `"None"` | V1 |
+| B-EV-5 | line breaks removed instead of becoming a space, which joins words | V9 |
+| B-EV-5 | only `\n` counted as a line break | V9 |
 | B-DAY-3 | all-day events sorted last | V3 |
 | B-PICK-2 | the end of an event made inclusive | P2 |
 | B-PICK-2 | events compared by time of day only, not date and time | P7 |

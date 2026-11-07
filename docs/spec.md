@@ -88,6 +88,7 @@ Relative words ("tomorrow", "next Monday") are not accepted. The model turns the
 | B-EV-2 | A missing text field is empty, never `None` or `null` |
 | B-EV-3 | The body is split into lines; each line is trimmed and blank lines are removed. The Teams join block is removed. It starts at a line of 10 or more underscores whose next non-blank line contains `Microsoft Teams`, or at a line that is exactly `Microsoft Teams 会議` or `Microsoft Teams meeting` after trimming, whose next non-blank line contains `teams.microsoft.`. It runs through the next line of 40 or more underscores, or to the end of the body; shorter underscore lines inside it do not end it. Any other line of underscores is kept, with what follows it (limits L9, L10) |
 | B-EV-4 | Busy status is shown by name: 0 Free, 1 Tentative, 2 Busy, 3 Out of office, 4 Working elsewhere. Other values are not shown |
+| B-EV-5 | Subject, location, organizer, required attendees, optional attendees and categories are one line each. Line breaks become a single space, together with any consecutive line breaks and the whitespace around them. A line break is anything `str.splitlines()` treats as one (`\r\n`, `\n`, vertical tab, `U+2028` and so on). Whitespace inside a line is kept, including full-width spaces. The body is not affected (B-EV-3) |
 
 ### 2.4 The event at a time (R2)
 
